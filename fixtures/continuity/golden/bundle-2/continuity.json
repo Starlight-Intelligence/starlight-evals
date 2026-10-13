@@ -1,0 +1,370 @@
+{
+  "schemaVersion": "starlight.continuity-bundle.v1",
+  "sisSourceRevision": "12d794a389959a2360bd4c920689510f0949f02b",
+  "observedAt": "2026-10-04T21:00:00.000Z",
+  "privacy": "metadata-only",
+  "observations": [
+    {
+      "sessionKey": "[\"claude\",\"0a1b2c3d-0000-4000-8000-000000000001\"]",
+      "workId": "work:claude-interactive",
+      "projectId": "project:continuity-eval",
+      "reportedState": "unknown",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "explicit-user-directive",
+      "goalSourceRef": "session:0a1b2c3d-0000-4000-8000-000000000001#lastPrompt",
+      "requestDigest": "653a9878f044e0f1d741d8dc88d7313839b6357ff3417b6902f354227ccbfe56",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:11:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"claude\",\"0a1b2c3d-0000-4000-8000-000000000002\"]",
+      "workId": "work:claude-headless",
+      "projectId": "project:continuity-eval",
+      "reportedState": "unknown",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "unresolved",
+      "goalSourceRef": null,
+      "requestDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:11:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"claude\",\"0a1b2c3d-0000-4000-8000-000000000003\"]",
+      "workId": "work:claude-clipped",
+      "projectId": "project:continuity-eval",
+      "reportedState": "unknown",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "unresolved",
+      "goalSourceRef": null,
+      "requestDigest": "c22fc6086658d0f46e26e652270c0bc3daaa75693d882ec48d5b5af9098227f0",
+      "requestTruncated": true,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:11:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000004\"]",
+      "workId": "work:codex-interactive",
+      "projectId": "project:continuity-eval",
+      "reportedState": "active",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "explicit-user-directive",
+      "goalSourceRef": "session:019a0000-0000-7000-8000-000000000004#lastPrompt",
+      "requestDigest": "3f2e2b7c159f7999e8f03d977734eb9eb95ad203a66832f5c1131407de629bac",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:31:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000005\"]",
+      "workId": "work:codex-exec",
+      "projectId": "project:continuity-eval",
+      "reportedState": "unknown",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "unresolved",
+      "goalSourceRef": null,
+      "requestDigest": "f9d73841bd44319c2894bb43f2851a230f189910c33207fecbf28e24f358fb07",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:31:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000006\"]",
+      "workId": "work:codex-partial",
+      "projectId": "project:continuity-eval",
+      "reportedState": "paused",
+      "stateVerification": "native-goal-store",
+      "goalAuthority": "native-goal-store",
+      "goalSourceRef": "codex-goal:goal-partial",
+      "requestDigest": "cdc7f9704949bf7e19367cafc747d88a9e1f0ed5096fe420351cdbda6d5eecb3",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:31:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000007\"]",
+      "workId": "work:codex-exec-native",
+      "projectId": "project:continuity-eval",
+      "reportedState": "unknown",
+      "stateVerification": "operator-supplied",
+      "goalAuthority": "unresolved",
+      "goalSourceRef": null,
+      "requestDigest": "201279a770903cee7efe1c60544202aaffc0b0aa609ab851bce7d5a2b7238a60",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:31:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    },
+    {
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000008\"]",
+      "workId": "work:codex-conflict",
+      "projectId": "project:continuity-eval",
+      "reportedState": "blocked",
+      "stateVerification": "native-goal-store",
+      "goalAuthority": "native-goal-store",
+      "goalSourceRef": "codex-goal:goal-conflict",
+      "requestDigest": "984b17b3aa63b459a496cbe5e28ff2e729cb39884482206d01b29bd2d6d660f9",
+      "requestTruncated": false,
+      "captureCompleteness": "complete",
+      "recordedActivity": "2026-10-04T19:31:00.000Z",
+      "repository": {
+        "root": "/sandbox/checkout",
+        "head": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "branch": "agent/claude/continuity-fixture",
+        "origin": "https://github.com/frankxai/continuity-eval-fixture.git",
+        "dirty": true,
+        "verification": "read-only-non-atomic-observation"
+      },
+      "mayAutomaticallyResume": false
+    }
+  ],
+  "events": [
+    {
+      "schemaVersion": "1.0",
+      "eventId": "capture:c391a3fa1d15c60e11a8a362f32fc60aac4b1f059e78d03fbc676746d98e3436",
+      "workId": "work:claude-interactive",
+      "correlationId": "work:claude-interactive",
+      "projectId": "project:continuity-eval",
+      "kind": "intent.captured",
+      "source": {
+        "system": "claude",
+        "sourceId": "0a1b2c3d-0000-4000-8000-000000000001",
+        "uri": "session:0a1b2c3d-0000-4000-8000-000000000001"
+      },
+      "actorId": "actor:operator",
+      "occurredAt": "2026-10-04T21:00:00.000Z",
+      "observedAt": "2026-10-04T21:00:00.000Z",
+      "evidenceRefs": [
+        "session:0a1b2c3d-0000-4000-8000-000000000001",
+        "session:0a1b2c3d-0000-4000-8000-000000000001#lastPrompt",
+        "sha256:653a9878f044e0f1d741d8dc88d7313839b6357ff3417b6902f354227ccbfe56"
+      ],
+      "visibility": "private",
+      "retention": "operational",
+      "summary": "Complete user directive captured; task admission and release proof remain external.",
+      "data": {
+        "harness": "claude",
+        "requestDigest": "653a9878f044e0f1d741d8dc88d7313839b6357ff3417b6902f354227ccbfe56",
+        "goalAuthority": "explicit-user-directive",
+        "goalSourceRef": "session:0a1b2c3d-0000-4000-8000-000000000001#lastPrompt",
+        "sourceVerification": "collector-claimed",
+        "reportedState": "unknown",
+        "stateVerification": "operator-supplied",
+        "repositoryHead": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "mayAutomaticallyResume": false
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "eventId": "capture:9749b012b4def0645a165009b413338ba4367909e0c3efca6595c476fcfa53df",
+      "workId": "work:codex-interactive",
+      "correlationId": "work:codex-interactive",
+      "projectId": "project:continuity-eval",
+      "kind": "intent.captured",
+      "source": {
+        "system": "codex",
+        "sourceId": "019a0000-0000-7000-8000-000000000004",
+        "uri": "session:019a0000-0000-7000-8000-000000000004"
+      },
+      "actorId": "actor:operator",
+      "occurredAt": "2026-10-04T21:00:00.000Z",
+      "observedAt": "2026-10-04T21:00:00.000Z",
+      "evidenceRefs": [
+        "session:019a0000-0000-7000-8000-000000000004",
+        "session:019a0000-0000-7000-8000-000000000004#lastPrompt",
+        "sha256:3f2e2b7c159f7999e8f03d977734eb9eb95ad203a66832f5c1131407de629bac"
+      ],
+      "visibility": "private",
+      "retention": "operational",
+      "summary": "Complete user directive captured; task admission and release proof remain external.",
+      "data": {
+        "harness": "codex",
+        "requestDigest": "3f2e2b7c159f7999e8f03d977734eb9eb95ad203a66832f5c1131407de629bac",
+        "goalAuthority": "explicit-user-directive",
+        "goalSourceRef": "session:019a0000-0000-7000-8000-000000000004#lastPrompt",
+        "sourceVerification": "collector-claimed",
+        "reportedState": "active",
+        "stateVerification": "operator-supplied",
+        "repositoryHead": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "mayAutomaticallyResume": false
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "eventId": "capture:8325de78ee3ec7acf4aae4e5cfe7e691a4b629179aa0325a63cfda05582298ac",
+      "workId": "work:codex-partial",
+      "correlationId": "work:codex-partial",
+      "projectId": "project:continuity-eval",
+      "kind": "intent.captured",
+      "source": {
+        "system": "codex",
+        "sourceId": "019a0000-0000-7000-8000-000000000006",
+        "uri": "session:019a0000-0000-7000-8000-000000000006"
+      },
+      "actorId": "actor:operator",
+      "occurredAt": "2026-10-04T21:00:00.000Z",
+      "observedAt": "2026-10-04T21:00:00.000Z",
+      "evidenceRefs": [
+        "session:019a0000-0000-7000-8000-000000000006",
+        "codex-goal:goal-partial",
+        "sha256:cdc7f9704949bf7e19367cafc747d88a9e1f0ed5096fe420351cdbda6d5eecb3"
+      ],
+      "visibility": "private",
+      "retention": "operational",
+      "summary": "Native harness goal captured; task admission and release proof remain external.",
+      "data": {
+        "harness": "codex",
+        "requestDigest": "cdc7f9704949bf7e19367cafc747d88a9e1f0ed5096fe420351cdbda6d5eecb3",
+        "goalAuthority": "native-goal-store",
+        "goalSourceRef": "codex-goal:goal-partial",
+        "sourceVerification": "collector-claimed",
+        "reportedState": "paused",
+        "stateVerification": "native-goal-store",
+        "nativeGoalStatus": "paused",
+        "nativeGoalUpdatedAt": "2026-10-04T19:45:00.000Z",
+        "repositoryHead": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "mayAutomaticallyResume": false
+      }
+    },
+    {
+      "schemaVersion": "1.0",
+      "eventId": "capture:2ca47f08cdfb31fb63bab386d014fe558a7a3ceb551a7ea57e341a8400086921",
+      "workId": "work:codex-conflict",
+      "correlationId": "work:codex-conflict",
+      "projectId": "project:continuity-eval",
+      "kind": "intent.captured",
+      "source": {
+        "system": "codex",
+        "sourceId": "019a0000-0000-7000-8000-000000000008",
+        "uri": "session:019a0000-0000-7000-8000-000000000008"
+      },
+      "actorId": "actor:operator",
+      "occurredAt": "2026-10-04T21:00:00.000Z",
+      "observedAt": "2026-10-04T21:00:00.000Z",
+      "evidenceRefs": [
+        "session:019a0000-0000-7000-8000-000000000008",
+        "codex-goal:goal-conflict",
+        "sha256:984b17b3aa63b459a496cbe5e28ff2e729cb39884482206d01b29bd2d6d660f9"
+      ],
+      "visibility": "private",
+      "retention": "operational",
+      "summary": "Native harness goal captured; task admission and release proof remain external.",
+      "data": {
+        "harness": "codex",
+        "requestDigest": "984b17b3aa63b459a496cbe5e28ff2e729cb39884482206d01b29bd2d6d660f9",
+        "goalAuthority": "native-goal-store",
+        "goalSourceRef": "codex-goal:goal-conflict",
+        "sourceVerification": "collector-claimed",
+        "reportedState": "blocked",
+        "stateVerification": "native-goal-store",
+        "nativeGoalStatus": "usage_limited",
+        "nativeGoalUpdatedAt": "2026-10-04T19:45:00.000Z",
+        "repositoryHead": "648cf74956b68b5a1c89cc75491968f0cd84d60b",
+        "mayAutomaticallyResume": false
+      }
+    }
+  ],
+  "issues": [
+    {
+      "code": "goal-unresolved",
+      "sessionKey": "[\"claude\",\"0a1b2c3d-0000-4000-8000-000000000002\"]"
+    },
+    {
+      "code": "goal-unresolved",
+      "sessionKey": "[\"claude\",\"0a1b2c3d-0000-4000-8000-000000000003\"]"
+    },
+    {
+      "code": "goal-unresolved",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000005\"]"
+    },
+    {
+      "code": "native-goal-not-interactive",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000007\"]"
+    },
+    {
+      "code": "goal-unresolved",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000007\"]"
+    },
+    {
+      "code": "goal-conflict",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000008\"]"
+    },
+    {
+      "code": "state-conflict",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000008\"]"
+    },
+    {
+      "code": "repository-unverified",
+      "sessionKey": "[\"codex\",\"019a0000-0000-7000-8000-000000000009\"]"
+    }
+  ],
+  "unboundSessions": [
+    "[\"codex\",\"019a0000-0000-7000-8000-00000000000a\"]"
+  ],
+  "executionStarted": false,
+  "admissionGranted": false,
+  "completionClaimed": false
+}

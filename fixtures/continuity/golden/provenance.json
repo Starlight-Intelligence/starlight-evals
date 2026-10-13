@@ -1,0 +1,8 @@
+{
+  "$comment": "Collector output for the synthetic sessions in harness/continuity/fixtures.mjs, produced by the pinned agentic-ops collector. The sandbox path was replaced by /sandbox and the bundle re-sealed with the collector's own writeContinuityBundle. Re-record with --record-golden only after reviewing the diff.",
+  "collector": {
+    "repo": "frankxai/agentic-ops",
+    "sha": "c194035e35a3a9c87c6c04fab5316787e82ac7c9"
+  },
+  "collectorSisBase": "12d794a389959a2360bd4c920689510f0949f02b"
+}

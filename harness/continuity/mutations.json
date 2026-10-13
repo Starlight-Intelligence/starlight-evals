@@ -1,0 +1,12 @@
+{
+  "$comment": "Deliberate regressions applied to the sandboxed copies of the pinned sources (after hash verification, never to the pins). Each one must turn the lane red; mutation-check.mjs fails if any run still passes. A mutated run's scorecard carries a `mutation` field and is never a result.",
+  "owner-check-removed": [{ "file": "sis/src/continuity-import.ts", "from": "if (work.ownerActorId !== request.actorId) throw", "to": "if (false) throw" }],
+  "paused-acknowledgement-skipped": [{ "file": "sis/src/continuity-import.ts", "from": "request.acknowledgePaused !== true) {", "to": "false) {" }],
+  "operator-allowlist-skipped": [{ "file": "sis/src/continuity-import.ts", "from": "if (!policy.operators.includes(event.actorId))", "to": "if (false)" }],
+  "replay-receipt-ignored": [{ "file": "sis/src/continuity-import.ts", "from": "if (receipts.some((r) => r.bundleDigest === bundle.digest)) {", "to": "if (false) {" }],
+  "completion-gate-bypassed": [{ "file": "sis/src/work-graph.ts", "from": "if (item.readyToComplete) {", "to": "if (true) {" }],
+  "codex-exec-treated-interactive": [{ "file": "agentic-ops/lifecycle/asph-engine.js", "from": "lastPromptOrigin = ['codex-tui',", "to": "lastPromptOrigin = ['codex_exec', 'codex-tui'," }],
+  "headless-claude-accepted": [{ "file": "agentic-ops/lifecycle/asph-engine.js", "from": "['cli', 'claude-desktop'].includes(requestEntrypoint)", "to": "['cli', 'claude-desktop', 'sdk-cli'].includes(requestEntrypoint)" }],
+  "native-goal-interactive-guard-removed": [{ "file": "agentic-ops/lifecycle/sis-continuity.js", "from": "if (native && !INTERACTIVE_CODEX_ORIGINATORS.has(session.originator)) {", "to": "if (false) {" }],
+  "private-text-always-exported": [{ "file": "agentic-ops/lifecycle/sis-continuity.js", "from": "if (options.includePrivateText === true) {", "to": "if (true) {" }]
+}

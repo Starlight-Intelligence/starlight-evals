@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "starlight.continuity-manifest.v1",
+  "checksums": {
+    "events.jsonl": "f8d08c2d2ff3a90339b8a3d6f03e9088b3ede98d4ab5218294be4bc226d5eb72",
+    "continuity.json": "744bbd30d1097d04f73c28410da536106b34ae59871f577b68201d04cd8acd4b",
+    "recovery.txt": "4e109fcbe81a99619d64b0a10ebbbc895fe4ccb9a7e3837a28ef49aa0453e71c"
+  },
+  "eventCount": 4,
+  "issueCount": 8,
+  "complete": true
+}

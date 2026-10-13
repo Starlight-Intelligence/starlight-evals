@@ -84,6 +84,39 @@ It is run by evaluator agents that hold the **Luminor kernel mindset** — Preci
 | **System** | the unifying scorecard + Overseer synthesis |
 | **Income & Payments Safety** (red/blue) | whether the income & payment stack rejects-and-audits 6 adversarial attack classes (R1–R6) — the L7 assurance lane *(v0.1, PENDING)* |
 | **Deep Reasoning** (R5) | whether the expensive model tiers buy fewer wrong answers than the cheap tiers where one wrong intermediate step propagates, cost-adjusted *(v0.1, ran 2026-08-28 — VOID-EQUIVALENT: the card saturated and separated nothing)* |
+| **Session Continuity** | whether recovered session intent stays honest from transcript to admitted work, with nothing resumed automatically *(v0.1, see below)* |
+
+## Session continuity lane
+
+`npm run eval:continuity` runs synthetic sessions through the real continuity pipeline and writes a JSON scorecard to `out/session-continuity-*.json`. CI uploads the same file as the `session-continuity-scorecard` artifact.
+
+The pipeline is the agentic-ops collector (transcript scan, Codex native goal store, bundle export) followed by the SIS importer (trust policy, quarantine, store, status read model, owner reconciliation). Both are fetched from GitHub at the commits in [`harness/continuity/pins.json`](harness/continuity/pins.json) and refused on any sha256 mismatch. Nothing from either repo is copied here except [`fixtures/continuity/golden/`](fixtures/continuity/golden), which is recorded collector output for the synthetic input.
+
+The inputs are ten synthetic sessions: interactive and `claude -p` Claude transcripts, interactive and `codex exec` Codex rollouts, a partial (sliced) capture, a clipped prompt, a session outside any checkout, an unbound session, and a SQLite goal store in Codex's `thread_goals` schema. They run against a real Git checkout with uncommitted work.
+
+The scorecard groups 104 checks:
+
+| Group | Asserts |
+|---|---|
+| intent-authority | interactive `/goal` requests gain authority; headless, automated, partial and clipped captures do not |
+| native-goals | native goals recover what a sliced transcript cannot, keep verified state, and raise goal and state conflicts; a native goal on a `codex exec` thread gains nothing |
+| workspace-and-checkout | checkout identity and the dirty flag are recorded; a session outside any checkout fails closed |
+| privacy | the default bundle holds no request text; private text needs an explicit opt-in; the collector reads only the synthetic sessions, never a real `~/.claude` or `~/.codex`; the scorecard holds no host path, temp dir, user or host name, or error text |
+| quarantine | nine untrusted-claim cases are each held back with their named reason |
+| crash-replay | replay is a no-op; torn tails, missing receipts and missing events replay without duplicates; a reused event ID with new content refuses the bundle |
+| fail-closed | tampered, interrupted, self-admitting, foreign-kind, unsupported-revision and corrupt-store inputs are refused |
+| owner-admission | only the registered owner with a typed confirmation admits; operators, impostors and agents without a terminal cannot |
+| proof-gated-completion | admitted work completes only with every required proof |
+| no-autostart | nothing is started, admitted or resumed, and uncommitted work survives byte for byte |
+| regression-suites, continuity-proof | both repos' own continuity tests and `lifecycle/continuity-proof.js`, run unmodified |
+
+The scorecard is published, so it records only fixed check names, booleans, counts, pinned SHAs, sha256 digests and fixed refusal codes. Every child process runs with a sandboxed `HOME` and without token variables. A final scan replaces any string that still looks like host data and fails the run, and `harness/continuity/scorecard-privacy.test.mjs` runs the lane and checks the scorecard and the log independently.
+
+`npm run eval:continuity:mutations` applies nine deliberate regressions to the sandboxed sources, one per run (for example removing the owner check or accepting `codex exec` as interactive), and fails if any run still passes. All nine are caught.
+
+**What it does not prove.** No live harness runs: no `claude` or `codex` process starts and no tokens are spent, so a future transcript format can still break the collector. No installed release is tested. Types are stripped rather than checked (a ten-line loader stands in for `tsx`; SIS's own CI runs `tsc`). Owner presence is a simulated typed confirmation, not authentication. Workspace scope (agentic-ops #178, SIS #291) is not on the pinned main, so workspace sessions are only shown to fail closed. Structural completion is not signed deployment acceptance.
+
+**The collector is private.** Fetching agentic-ops needs `AGENTIC_OPS_TOKEN` locally, or the `AGENTIC_OPS_READ_TOKEN` repository secret in CI: a fine-grained token with Contents read-only on `frankxai/agentic-ops` only. Without it the SIS leg imports the golden bundles and the verdict is `PARTIAL`, never `PASS`. With it, the live collector output must match the golden bundles byte for byte. After a deliberate pin change, re-record them with `--record-golden` and review the diff.
 
 ## Latest scorecard — 2026-06-10 (v0.1)
 
@@ -111,6 +144,8 @@ SPEC.md         — the specification (lanes, scorecard contract, cadence, evalu
 lanes.json      — lane registry: what each lane composes
 scorecards/     — system-eval receipts + red/blue scorecards (one per run)
 rounds/         — model-lane arena round receipts + red/blue probe sets
+harness/        — runnable lanes (income/payments red-blue, R5 deep reasoning, session continuity)
+fixtures/       — lane inputs (R5 task set, skill-lint fixture, recorded continuity bundles)
 ```
 
 ## Run it on your own system

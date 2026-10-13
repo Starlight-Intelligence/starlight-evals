@@ -1,0 +1,55 @@
+Work: "work:claude-interactive"
+Reported state: unknown (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: explicit-user-directive
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:claude-headless"
+Reported state: unknown (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: unresolved
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:claude-clipped"
+Reported state: unknown (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: unresolved
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:codex-interactive"
+Reported state: active (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: explicit-user-directive
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:codex-exec"
+Reported state: unknown (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: unresolved
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:codex-partial"
+Reported state: paused (native-goal-store; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: native-goal-store
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:codex-exec-native"
+Reported state: unknown (operator-supplied; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: unresolved
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.
+
+Work: "work:codex-conflict"
+Reported state: blocked (native-goal-store; reconcile the current owner)
+Checkout: {"root":"/sandbox/checkout","head":"648cf74956b68b5a1c89cc75491968f0cd84d60b","branch":"agent/claude/continuity-fixture","origin":"https://github.com/frankxai/continuity-eval-fixture.git","dirty":true,"verification":"read-only-non-atomic-observation"}
+Goal authority: native-goal-store
+Private request text omitted. Inspect the original source before continuation.
+Recheck repository instructions, owner, branch, HEAD and dirty changes. Preserve WIP. Paused or blocked work requires explicit reconciliation. No command has been executed.

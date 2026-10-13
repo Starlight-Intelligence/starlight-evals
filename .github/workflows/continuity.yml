@@ -1,0 +1,95 @@
+# Built on SIP — session-continuity lane (issue #20).
+#
+# Runs synthetic sessions through the pinned agentic-ops collector and the pinned SIS
+# importer and uploads the JSON scorecard. Sources are fetched by commit SHA and refused
+# on any sha256 mismatch (harness/continuity/pins.json).
+#
+# agentic-ops is private. The collector leg needs the AGENTIC_OPS_READ_TOKEN secret: a
+# fine-grained token with Contents: read-only on frankxai/agentic-ops and nothing else.
+# Without it (forks, or before the secret is configured) the SIS leg runs on the recorded
+# golden bundles, the verdict is PARTIAL and a warning says so; it is never reported as
+# PASS. With the token present the run uses --require-collector, so a blocked collector
+# fails the job instead of degrading.
+name: continuity
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: continuity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: node --check every lane script
+        run: |
+          set -e
+          for f in harness/session-continuity.mjs harness/continuity/*.mjs harness/continuity/*.cjs harness/continuity/loader/*.mjs; do
+            node --check "$f"
+          done
+
+      - name: Run the session-continuity lane
+        env:
+          AGENTIC_OPS_TOKEN: ${{ secrets.AGENTIC_OPS_READ_TOKEN }}
+        run: |
+          if [ -n "$AGENTIC_OPS_TOKEN" ]; then
+            node harness/session-continuity.mjs --require-collector
+          else
+            node harness/session-continuity.mjs
+          fi
+
+      - name: Scorecard and log carry no host paths, identity or error text
+        env:
+          AGENTIC_OPS_TOKEN: ${{ secrets.AGENTIC_OPS_READ_TOKEN }}
+        run: node --test harness/continuity/scorecard-privacy.test.mjs
+
+      - name: Upload the JSON scorecard
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-continuity-scorecard
+          path: out/session-continuity-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Prove the run did not rewrite committed fixtures or receipts
+        run: git diff --exit-code -- fixtures/ scorecards/
+
+  mutation-check:
+    # Every deliberate regression in harness/continuity/mutations.json must turn the lane red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Run each mutation and require it to be caught
+        env:
+          AGENTIC_OPS_TOKEN: ${{ secrets.AGENTIC_OPS_READ_TOKEN }}
+        run: node harness/continuity/mutation-check.mjs
+
+      - name: Upload the mutation-check result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-continuity-mutation-check
+          path: out/session-continuity-mutation-check.json
+          retention-days: 30

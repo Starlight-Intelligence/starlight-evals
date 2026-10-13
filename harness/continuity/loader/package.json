@@ -1,0 +1,7 @@
+{
+  "$comment": "Installed into the sandboxed SIS checkout as node_modules/tsx so the unmodified pinned sources (which run `node --import tsx`) resolve it. It is not tsx: Node 24 strips the types itself and this hook only maps a missing ./x.js import to ./x.ts. Nothing is type-checked.",
+  "name": "tsx",
+  "private": true,
+  "type": "module",
+  "exports": "./index.mjs"
+}

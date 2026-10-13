@@ -1,0 +1,2 @@
+# Golden continuity bundles are checksummed byte for byte by their manifest.
+fixtures/continuity/golden/** -text

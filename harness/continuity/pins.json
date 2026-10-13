@@ -1,0 +1,39 @@
+{
+  "$comment": "Pinned sources for the session-continuity lane. The harness fetches each file at its commit SHA, refuses to run on any sha256 mismatch and never falls back to a branch. Changing a pin is a deliberate contract review: update sha and sha256 together and re-record the golden bundles.",
+  "repositories": {
+    "agentic-ops": {
+      "repo": "frankxai/agentic-ops",
+      "visibility": "private",
+      "sha": "c194035e35a3a9c87c6c04fab5316787e82ac7c9",
+      "role": "collector: transcript scan, Codex native goal store, bundle export, end-to-end proof",
+      "files": {
+        "lifecycle/sis-continuity.js": "69e472642cda64afaf6ade5fdacef9d57c9ab45001a795bdd1468108df20f77e",
+        "lifecycle/codex-goals.js": "542f9ec14103580f81e0b44cb9783893d7b2eeea19f68cda0c057824be341baa",
+        "lifecycle/asph-engine.js": "ef161a3803fde3a118215244a269cce80fdcbb1f0ca796014af7480f48c5ee18",
+        "lifecycle/prompt-ledger.js": "092bea180d657b15eaac0620282744b9f0a4738bf9017e8994302a5e84f05256",
+        "lifecycle/cursor-lock.js": "5a39bf8e03d6418a32111c5dd682281d8c6d53eeb01bee11cb89b35cd8a0b960",
+        "lifecycle/continuity-proof.js": "8e44e6ab7486056acae3c9b3d2ce988f7a9ea3fb37a537cf85291217c3d129a6",
+        "lifecycle/sis-continuity.test.js": "0ccc7e63687db1e8489dad27cb1f84526b1fb1429ca2b31b5587853ad32e2d7e",
+        "lifecycle/codex-goals.test.js": "95444207d96d5123cdeb700a190f50f24ca4ead545d4e8969e71c8dcbe4dbe71",
+        "lifecycle/sis-continuity.conformance.test.js": "fa208ebdfdbf7bdf39f9f16a6708f6c47a037b7eedcd600087c9571f6a5eaa0d"
+      }
+    },
+    "sis": {
+      "repo": "frankxai/Starlight-Intelligence-System",
+      "visibility": "public",
+      "sha": "c462fc7b0f0565dfdaa906ac5ef0021e76980eaa",
+      "role": "importer: trust policy, quarantine, store, status read model, owner reconciliation",
+      "files": {
+        "src/continuity-import.ts": "d2e547f017362bdc3671a735f7b2e3f82e9aa5107ee3331093c264c8d3951724",
+        "src/continuity-cli.ts": "bc6bfaea58fb30e0d7e5f03fe188984d82f18270e9aec5baeb4b5daa612f964e",
+        "src/work-graph.ts": "71c0597a32ec82c248f5b53ed0a3c742f45e537e7e8432606bfa8af6a8eb68a0",
+        "test/_lib/continuity-fixture.ts": "015c9fbd58f379f3a09d7931dc7e9dca84cd09222d64daacfe64d016691577f0",
+        "test/_lib/repo.ts": "b1780882411b413f827a29cbda62b1c488d98d07b414924ba044c08b8ec0f44e",
+        "test/continuity-import.test.ts": "a6b821cf6561be0d193b389a2041c290f101abe1c666b78d104d66e45c06d6f5",
+        "test/continuity-cli.test.ts": "0a4dcb83e5b53bd8be85f6fcdd682b504e5097eb1ef893218abcd8d168f08486",
+        "test/continuity-review-regressions.test.ts": "c71b80c280bf63fd311ba805a08ac5d9cd0b9d0db1dbe5791e0215b8331d098e"
+      }
+    }
+  },
+  "$note": "src/work-graph.ts at the SIS pin is byte-identical to the collector's declared SIS_BASE (12d794a) copy, sha256 71c0597a…68a0, which the agentic-ops conformance test asserts on its own."
+}

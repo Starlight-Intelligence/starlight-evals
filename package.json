@@ -12,7 +12,9 @@
     "test": "node scripts/validate-json.mjs && node harness/income-payments-safety.mjs",
     "lint:skills": "node scripts/lint-skills.mjs",
     "eval:pf": "npx -y promptfoo@latest eval -c promptfooconfig.yaml",
-    "eval:r5": "node harness/deep-reasoning.mjs"
+    "eval:r5": "node harness/deep-reasoning.mjs",
+    "eval:continuity": "node harness/session-continuity.mjs",
+    "eval:continuity:mutations": "node harness/continuity/mutation-check.mjs"
   },
   "engines": {
     "node": ">=22"
