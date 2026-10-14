@@ -1,6 +1,0 @@
-ASPH WIP
-Branch: agent/claude/wave0-evals-bootstrap
-Objective: N/A
-Touched: M scorecards/income-payments-safety-v0.2.json ?? .asph-wip/
-Resume with: git reset HEAD~1 --mixed
-Full prompt + visual console in agentic-ops/lifecycle/asph-genius-recovery.html
