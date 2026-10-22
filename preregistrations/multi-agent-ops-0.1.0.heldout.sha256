@@ -1,0 +1,6 @@
+faa89245a8095c233f65cdf41777dce58e6cab0de9d4fff3692c5df9c27060ed  SET
+
+# Held-out set for Starlight playbook multi-agent-ops 0.1.0
+# 13 tasks (H01-H13), written by Codex (OpenAI), a different vendor from the pack maker,
+# without access to the pack skills. Stored privately; SET is the sha256 over the sorted
+# per-file hashes of tasks.json, fixtures/, graders/ and reference/.
