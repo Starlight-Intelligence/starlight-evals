@@ -1,7 +1,7 @@
 {
   "schema": "arena-results.v0",
   "arenaId": "2026-10-22-mock-bad",
-  "createdAt": "2026-10-22T21:41:23.036Z",
+  "createdAt": "2026-10-22T22:01:00.945Z",
   "pipelineTest": true,
   "mock": "bad",
   "runtime": "local",
@@ -38,16 +38,19 @@
         "@anthropic-ai/claude-code": "2.1.303"
       },
       "status": "ran",
+      "launchExit": 0,
+      "foreignRows": 0,
       "refusals": [],
       "blockers": [],
       "knownBlockers": [],
+      "spentUsd": null,
       "aggregate": {
         "trials": 2,
         "graded": 2,
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 14382,
+        "wallMs": 15144,
         "costUsd": 0,
         "costPerPassUsd": null,
         "tokens": {
@@ -63,12 +66,12 @@
       },
       "receipt": {
         "file": "receipts/claude-code.receipt.json",
-        "id": "ef66b1e66e522c62c4b8e13e",
+        "id": "4c0163c337c2360ac8ad6937",
         "verdict": "accept",
         "maker": "external:anthropic",
         "grader": "shell:pipeline-grader.mjs",
-        "artifactSha": "8f84c403b330ea30728b6dd926ffdfed8cd3d7a7",
-        "contractId": "d8fd8b5c200eaa6cf0c7eea1be6f668b5547a2b0af560b37f3be34a58ffc21ca",
+        "artifactSha": "d82480a67d105a1d9a7e17a2c8b656972922863c",
+        "contractId": "0f60045559da3db85ae51b700f415888727d0761034fad0dc3e1af10a67e1841",
         "runExit": 0,
         "state": "accepted"
       },
@@ -90,16 +93,19 @@
         "@openai/codex": "0.163.0"
       },
       "status": "ran",
+      "launchExit": 0,
+      "foreignRows": 0,
       "refusals": [],
       "blockers": [],
       "knownBlockers": [],
+      "spentUsd": null,
       "aggregate": {
         "trials": 2,
         "graded": 2,
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 14724,
+        "wallMs": 14952,
         "costUsd": null,
         "costPerPassUsd": null,
         "tokens": {
@@ -115,12 +121,12 @@
       },
       "receipt": {
         "file": "receipts/codex.receipt.json",
-        "id": "d3bd8d0b0fe672b84ac308e4",
+        "id": "296a96ca4a7bf96248dbfba4",
         "verdict": "accept",
         "maker": "external:openai",
         "grader": "shell:pipeline-grader.mjs",
-        "artifactSha": "dafd1e93a9ff21ec2bbb79285295ab648d90641a",
-        "contractId": "53e21902dbac517c048ec87c489b586a9c5c0fb8a3569a43f39144dac5251d83",
+        "artifactSha": "876a854cde8a50b9b25fec325b533217a6339316",
+        "contractId": "89952cf44559594df6a9747a3c5eac8c4bddaf962134d861c242b53b573bfac3",
         "runExit": 0,
         "state": "accepted"
       },
@@ -143,6 +149,8 @@
         "oh-my-opencode": "2.5.1"
       },
       "status": "ran",
+      "launchExit": 0,
+      "foreignRows": 0,
       "refusals": [],
       "blockers": [],
       "knownBlockers": [
@@ -152,13 +160,14 @@
           "detail": "OpenRouter returned 402 (no credit) on the first playbook eval run. The contestant records this as a blocker and never retries."
         }
       ],
+      "spentUsd": null,
       "aggregate": {
         "trials": 2,
         "graded": 2,
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 14714,
+        "wallMs": 15132,
         "costUsd": 0,
         "costPerPassUsd": null,
         "tokens": {
@@ -201,9 +210,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:06.638Z",
-      "endedAt": "2026-10-22T21:41:15.670Z",
-      "wallMs": 8456,
+      "startedAt": "2026-10-22T22:00:44.077Z",
+      "endedAt": "2026-10-22T22:00:53.622Z",
+      "wallMs": 9010,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -216,6 +225,36 @@
       "costUsd": 0,
       "costSource": "cli",
       "toolCalls": 7,
+      "tools": [
+        {
+          "name": "Bash",
+          "id": "t0"
+        },
+        {
+          "name": "Bash",
+          "id": "t1"
+        },
+        {
+          "name": "Bash",
+          "id": "t2"
+        },
+        {
+          "name": "Bash",
+          "id": "t3"
+        },
+        {
+          "name": "Bash",
+          "id": "t4"
+        },
+        {
+          "name": "Bash",
+          "id": "t5"
+        },
+        {
+          "name": "Bash",
+          "id": "t6"
+        }
+      ],
       "scores": {
         "collision": 1,
         "bad_merge": 0,
@@ -237,7 +276,7 @@
         "llm": null
       },
       "systemPromptDelivery": "--append-system-prompt",
-      "transcript": "transcripts\\T01\\2026-10-22-mock-bad.claude-code.T01.1.jsonl"
+      "transcript": "claude-code/transcripts/T01/2026-10-22-mock-bad.claude-code.T01.1.jsonl"
     },
     {
       "schema": "arena-trial.v0",
@@ -256,9 +295,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:15.728Z",
-      "endedAt": "2026-10-22T21:41:22.643Z",
-      "wallMs": 5926,
+      "startedAt": "2026-10-22T22:00:53.684Z",
+      "endedAt": "2026-10-22T22:01:00.852Z",
+      "wallMs": 6134,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -271,6 +310,16 @@
       "costUsd": 0,
       "costSource": "cli",
       "toolCalls": 2,
+      "tools": [
+        {
+          "name": "Bash",
+          "id": "t0"
+        },
+        {
+          "name": "Bash",
+          "id": "t1"
+        }
+      ],
       "scores": {
         "collision": 0,
         "bad_merge": 1,
@@ -292,7 +341,7 @@
         "llm": null
       },
       "systemPromptDelivery": "--append-system-prompt",
-      "transcript": "transcripts\\T09\\2026-10-22-mock-bad.claude-code.T09.1.jsonl"
+      "transcript": "claude-code/transcripts/T09/2026-10-22-mock-bad.claude-code.T09.1.jsonl"
     },
     {
       "schema": "arena-trial.v0",
@@ -311,9 +360,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:06.649Z",
-      "endedAt": "2026-10-22T21:41:15.670Z",
-      "wallMs": 8430,
+      "startedAt": "2026-10-22T22:00:44.066Z",
+      "endedAt": "2026-10-22T22:00:53.601Z",
+      "wallMs": 9021,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -326,6 +375,36 @@
       "costUsd": null,
       "costSource": "pricing",
       "toolCalls": 7,
+      "tools": [
+        {
+          "name": "command_execution",
+          "id": "item_0"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_1"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_2"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_3"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_4"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_5"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_6"
+        }
+      ],
       "scores": {
         "collision": 1,
         "bad_merge": 0,
@@ -347,7 +426,7 @@
         "llm": null
       },
       "systemPromptDelivery": "prepended to the prompt",
-      "transcript": "transcripts\\T01\\2026-10-22-mock-bad.codex.T01.1.jsonl"
+      "transcript": "codex/transcripts/T01/2026-10-22-mock-bad.codex.T01.1.jsonl"
     },
     {
       "schema": "arena-trial.v0",
@@ -366,9 +445,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:15.729Z",
-      "endedAt": "2026-10-22T21:41:22.956Z",
-      "wallMs": 6294,
+      "startedAt": "2026-10-22T22:00:53.660Z",
+      "endedAt": "2026-10-22T22:01:00.619Z",
+      "wallMs": 5931,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -381,6 +460,16 @@
       "costUsd": null,
       "costSource": "pricing",
       "toolCalls": 2,
+      "tools": [
+        {
+          "name": "command_execution",
+          "id": "item_0"
+        },
+        {
+          "name": "command_execution",
+          "id": "item_1"
+        }
+      ],
       "scores": {
         "collision": 0,
         "bad_merge": 1,
@@ -402,7 +491,7 @@
         "llm": null
       },
       "systemPromptDelivery": "prepended to the prompt",
-      "transcript": "transcripts\\T09\\2026-10-22-mock-bad.codex.T09.1.jsonl"
+      "transcript": "codex/transcripts/T09/2026-10-22-mock-bad.codex.T09.1.jsonl"
     },
     {
       "schema": "arena-trial.v0",
@@ -421,9 +510,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:06.653Z",
-      "endedAt": "2026-10-22T21:41:15.670Z",
-      "wallMs": 8441,
+      "startedAt": "2026-10-22T22:00:44.106Z",
+      "endedAt": "2026-10-22T22:00:53.621Z",
+      "wallMs": 8980,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -436,6 +525,36 @@
       "costUsd": 0,
       "costSource": "cli",
       "toolCalls": 7,
+      "tools": [
+        {
+          "name": "bash",
+          "id": "c0"
+        },
+        {
+          "name": "bash",
+          "id": "c1"
+        },
+        {
+          "name": "bash",
+          "id": "c2"
+        },
+        {
+          "name": "bash",
+          "id": "c3"
+        },
+        {
+          "name": "bash",
+          "id": "c4"
+        },
+        {
+          "name": "bash",
+          "id": "c5"
+        },
+        {
+          "name": "bash",
+          "id": "c6"
+        }
+      ],
       "scores": {
         "collision": 1,
         "bad_merge": 0,
@@ -457,7 +576,7 @@
         "llm": null
       },
       "systemPromptDelivery": "prepended to the prompt",
-      "transcript": "transcripts\\T01\\2026-10-22-mock-bad.opencode-omo.T01.1.jsonl"
+      "transcript": "opencode-omo/transcripts/T01/2026-10-22-mock-bad.opencode-omo.T01.1.jsonl"
     },
     {
       "schema": "arena-trial.v0",
@@ -476,9 +595,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T21:41:15.729Z",
-      "endedAt": "2026-10-22T21:41:22.940Z",
-      "wallMs": 6273,
+      "startedAt": "2026-10-22T22:00:53.684Z",
+      "endedAt": "2026-10-22T22:01:00.857Z",
+      "wallMs": 6152,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -491,6 +610,16 @@
       "costUsd": 0,
       "costSource": "cli",
       "toolCalls": 2,
+      "tools": [
+        {
+          "name": "bash",
+          "id": "c0"
+        },
+        {
+          "name": "bash",
+          "id": "c1"
+        }
+      ],
       "scores": {
         "collision": 0,
         "bad_merge": 1,
@@ -512,7 +641,7 @@
         "llm": null
       },
       "systemPromptDelivery": "prepended to the prompt",
-      "transcript": "transcripts\\T09\\2026-10-22-mock-bad.opencode-omo.T09.1.jsonl"
+      "transcript": "opencode-omo/transcripts/T09/2026-10-22-mock-bad.opencode-omo.T09.1.jsonl"
     }
   ]
 }

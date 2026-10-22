@@ -38,7 +38,7 @@ node harness/arena/run-arena.mjs --runtime railway-plan --out /tmp/arena-plan
 node --test harness/arena/test/arena.test.mjs
 ```
 
-Drop `--mock` for a real run. It is refused today (exit 4) with every reason listed, because the caps are empty, contract 0.2.0 has no public pre-registration, and no keys are set.
+Drop `--mock` for a real run. It is refused today (exit 4) with every reason listed: the caps are empty, contract 0.2.0 has no public pre-registration, no keys are set, and a host run has no credential boundary. Each run needs a fresh `--out`; the default is `runs/<arenaId>`, and a non-empty destination is refused.
 
 ## What a run records
 
@@ -56,37 +56,47 @@ The orchestrator writes:
 - `RESULTS.md`, the table
 - `receipts/`, one Kernel receipt per contestant plus the issuer's public key
 
-**Team Card mapping.** `lib.mjs` `toTeamRun()` is the only place arena fields become team-run fields:
+**Team Card mapping.** `lib.mjs` `toTeamRun()` is the only place arena fields become team-run fields. The target is `schemas/team-run.v0.schema.json` in frankxai/starlight-kernel#9 (draft, 93af8cd), whose attribute names are OpenTelemetry GenAI's:
 
 | arena-trial.v0 | team-run.v0 |
 |---|---|
-| `contestant` | `agentId` |
-| `startedAt`, `endedAt` | start, end |
-| `costUsd` | cost |
-| `model` | model |
-| `toolCalls` | tool calls |
-| `pack:task`, pass/fail | `outcome.goalId`, `outcome.status` |
+| `trialId`, `startedAt`, `endedAt` | `runId`, `startTime`, `endTime` |
+| `contestant`, `harness`, `harnessVersion`, `arenaId` | `gen_ai.agent.id`, `.agent.name`, `.agent.version`, `gen_ai.conversation.id` |
+| `vendor`, `model` | `gen_ai.provider.name` (OTel values: anthropic, openai, openrouter), `gen_ai.request.model` |
+| `tokens` | `gen_ai.usage.*` |
+| `finished` other than done | `error.type` |
+| `tools` | `toolCalls[]` (`gen_ai.tool.name`, `gen_ai.tool.call.id`) |
+| `costUsd`, `costSource` | `cost.usd`, `cost.basis` (cli-reported, or estimate from the price table) |
+| task pass/fail | `outcome`: `goalId` `<pack>-<task>`, `delta` 1 or 0, `evidence` the contestant's `receipt:<id>` |
+| `events` | `lightEvents[]` (held-gate, refused-unsafe-action, escalated-to-human) |
 
-Team Card's schema file was not published when this was written, so the names follow its plan. That mapping is `[OPEN]` until the schema lands.
+A trial with no verdict, or a contestant with no receipt, claims no outcome (`null`). A pipeline test reports cost `null` with basis `unknown`, so a scorecard never reads a mock as a free harness. Both dry runs pass Team Card's own check: `node bin/starlight.mjs team scorecard --week 2026-W43 --runs <team-run.jsonl>` exits 0. Names may still shift if the review of #9 changes them.
 
 ## Gates
 
 - **Caps.** `caps.perRunUsd` and `caps.perArenaUsd` ship as `null`, and a paid run will not start until Frank sets both.
   - A run is one contestant on one task for one trial.
   - The arena cap is split evenly across the contestants started, because separate containers cannot share a live counter.
-  - Claude gets `--max-budget-usd`. Codex and OpenCode are killed once the cost in their stream crosses the run's budget.
+  - Claude gets `--max-budget-usd`. Any harness is killed once the cost in its stream crosses the run's budget.
+  - Codex reports usage only when a turn ends, so mid-run its spend is bounded by the contract's step limit (40 tool calls), which every harness gets, and by the 900 s wall clock. A single Codex turn can therefore overshoot the per-run cap before it is seen. Set the cap with that margin in mind.
   - Before each trial, the remaining share is checked.
+  - A killed run takes its whole process group with it, so subagents and workers stop too.
+  - Charges are settled before grading, so a grader failure never drops one. A run whose cost comes back unknown stops that contestant's paid queue (`cost-unknown`).
+  - A Codex price row needs finite `inputPerMTok` and `outputPerMTok`; an empty row is no price.
+- **Kernel grading spend.** A paid receipt is a model call too, so it needs `caps.perReceiptUsd`, reserved inside the arena cap and passed to the Kernel as `budget.maxCostUsd`. The Kernel meters only a grader CLI that reports its own cost, so routing a receipt to a Codex or Antigravity grader also needs `kernel.allowUnmeteredGraders: true`, which ships `false`.
+- **Where a paid run may happen.** Only in a container (`--runtime docker` or Railway). On the host the agent shares a user with the runner and could read its environment, so a paid local run is refused. In the container the entrypoint stays root only to take ownership of `/out`, fetch the pack and upload results. The contestant runs as the `arena` user with a cleaned environment holding only its own credential. The arena code is root-owned, so the agent cannot edit the runner. A `.dockerignore` allowlist keeps runs, Kernel homes, transcripts and keys out of every image.
 - **Pre-registration.** A paid run needs the pinned contract's sha256 in `contract.preregistrations`. Only 0.1.0 (`d090e6e4…`) is published. The PR #2 head carries 0.2.0 (`db89491f…`).
 - **Credentials.** Credentials are environment names, or Infisical locations, and nothing else. A container receives only its own contestant's credential, as `-e NAME`. The playbook read token is dropped before any agent starts.
 - **Data class.** The public tasks are synthetic fixtures (data class 1). `opencode-omo` is limited to class 1, so the private held-out set never reaches it.
-- **OpenRouter.** OpenRouter's key endpoint is checked before an open-model run. A 402, or no remaining credit, is recorded as a blocker and is not retried. On 2026-10-22 the first playbook run hit 402, and that blocker stands until credit is added.
+- **OpenRouter and out-of-credit.** OpenRouter's key endpoint is checked before an open-model run. During any run, an error event or stderr line reporting no credit (402 Payment Required, insufficient credits) kills the run and stops that contestant's queue. Neither is retried. On 2026-10-22 the first playbook run hit 402, and that blocker stands until credit is added.
+- **Credentials in transcripts.** Every injected credential value is redacted by name from transcripts and error text before anything is written.
 - **Maker ≠ checker.** LLM-judged tasks are finished by the orchestrator, outside the contestant's container. Kernel graders are routed per vendor: Claude's bundle goes to Codex, and Codex's and Google's go to Claude.
 
 ## The Kernel step
 
 Each contestant's compact rows and aggregate become a commit in a throwaway ledger repository. The arena submits that commit as an external artifact (`task create --artifact --maker-vendor <contestant vendor>`).
 
-The contract's protected `verify-arena.mjs` recomputes the aggregate from the rows and checks every row's contract hash. `transcripts.sha256` is bound as external evidence. The receipt is then verified with only the public key, as a buyer would.
+The contract's protected `verify-arena.mjs` carries its own copy of the aggregate function and recomputes every aggregate field from the rows (passes, cost, tokens, wall time, tool calls, events). It also checks every row's contract hash, arena and contestant, and that each pass agrees with the scores and any LLM verdict. `transcripts.sha256` is bound as external evidence. The receipt is then verified with only the public key, as a buyer would.
 
 The receipt says the bundle reports what its rows record under that contract. It does not say the contestant is good: the bad-mock control gets an `accept` receipt with 0/2 passes.
 
@@ -125,7 +135,9 @@ Read from developers.cloudflare.com on 2026-10-22.
 - **The LLM grader for T29 is not wired.** That is the one LLM-judged task, and its rows stay `pass: null`.
 - **Kernel cannot name open-model vendors yet.** It needs a vendor for OpenRouter-routed open models, so that `opencode-omo` can get a receipt.
 - **Large bundles hit the Kernel's diff limit.** A full arena of 29 tasks × 5 trials per contestant may exceed the Kernel's 60,000-character review limit, which would need receipts per task group.
-- **Process isolation is the same as the playbook's.** The agent and the simulator share a container user, so tampering is detected by the simulator's journal, not prevented.
+- **The agent and the simulator share the `arena` user.** Tampering with the gh simulator's state is detected by its journal, not prevented, as in the playbook's own runner.
+- **The cap stops a run after it crosses, not before.** A run can overshoot by up to one model response, or one Codex turn. Reserving spend ahead of each request needs a metered gateway in front of the providers, which this version does not have.
+- **`setpriv` and the entrypoint are unbuilt.** The privilege drop has not run in a built image.
 - **Fourth contestant `[OPEN]`.** eve needs a Vercel Sandbox and a channel trigger, so it cannot run these tasks without a rewrite. No Flue agent was identified.
 - **The omo pin is a licence decision.** Moving it past 2.5.1 means SUL-1.0, under which internal business use is allowed. That is Frank's call.
 - **Methodology home.** This repository's `AGENTS.md` names `Starlight-Intelligence-System/tools/arena` as the methodology origin, but that arena is a model arena that runs inside Claude Code subagents, not a containerised harness arena. Whether this lane is mirrored there is `[OPEN]`.

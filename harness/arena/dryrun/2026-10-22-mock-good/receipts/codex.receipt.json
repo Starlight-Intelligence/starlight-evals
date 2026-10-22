@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T21:41:04.710Z",
+  "issuedAt": "2026-10-22T22:00:42.285Z",
   "taskId": "arena-2026-10-22-mock-good-codex",
   "verdict": "accept",
-  "artifactSha": "d2896ed4a39f1a602f2bf3121eb8e59e0f335041",
-  "targetSha": "7685a6eed34cabab377a00cce24eca8d33d6fafe",
-  "contractId": "b5f30bb2ad65dbed98707d4aae960c5465bc43f1745cd88fac4af794af829c7a",
+  "artifactSha": "16a7b4f0f7ddc6a62cc43065824eb48da3411f72",
+  "targetSha": "4cdad40c34a5612f702b7e6f1790f5c37457d0b7",
+  "contractId": "e2fcf784ad1b2be5200e9916835c2c282ffdc9fb79b4711ef550a273482ae9b2",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:openai",
@@ -28,6 +28,6 @@
       }
     ]
   },
-  "keyId": "ff67a5288c9e16e5",
-  "signature": "eNTXHSrDeLajYrgaCt3Nz+sfVRJavXADoezMdz9y0L2sGZgh8n+H6ZmO/rt31GxPPMuDXp5u1drGBeQVwXQ2AQ=="
+  "keyId": "1e169f8503c04156",
+  "signature": "QUfF1JcI7dZOwEpjJxOj14zwbTnncp2IlcXVY4IStahxTGcqpSAmf6juV2YBb03AYQA6ABwr/tQ7TDKzm+l6CQ=="
 }

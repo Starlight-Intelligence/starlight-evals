@@ -23,7 +23,8 @@
   "caps": {
     "perRunUsd": null,
     "perArenaUsd": null,
-    "$comment": "A run is one contestant on one task for one trial. The arena cap is split evenly across the contestants started, because they run in separate containers that cannot share a live counter."
+    "perReceiptUsd": null,
+    "$comment": "A run is one contestant on one task for one trial. The arena cap is split evenly across the contestants started, because they run in separate containers that cannot share a live counter. perReceiptUsd is reserved inside the arena cap for each paid Kernel grading."
   },
   "pricing": {
     "$comment": "USD per million tokens, only for CLIs that do not report their own cost (Codex). Empty means cost unknown, and a contestant with unknown cost cannot start a paid run.",
@@ -37,7 +38,9 @@
       "openai": "claude",
       "google": "claude"
     },
-    "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs"
+    "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs",
+    "allowUnmeteredGraders": false,
+    "allowUnmeteredGradersNote": "The kernel meters only a grader CLI that reports its own cost. Codex and Antigravity graders do not, so a paid receipt routed to them stays refused until Frank sets this to true."
   },
   "contestants": [
     {

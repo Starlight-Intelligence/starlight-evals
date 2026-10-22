@@ -2,11 +2,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { CHECK, MARKER } from '../kernel/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 import { ADAPTERS, priceCost } from '../adapters.mjs';
-import { aggregate, lightEvents, openrouterPreflight, paidRunRefusals, passOf, readCaps, toTeamRun } from '../lib.mjs';
+import { OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, toTeamRun } from '../lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const config = JSON.parse(readFileSync(path.join(HERE, '..', 'arena.config.json'), 'utf8'));
@@ -58,14 +60,34 @@ test('caps ship empty, so every paid run is refused with the reasons named', () 
   assert.ok(r.some((x) => x.includes('pre-registration')), 'contract 0.2.0 is not pre-registered');
 });
 
-test('with caps, a pre-registered contract and a key, a run is admitted; a cap of 0 still admits none', () => {
+test('with caps, a pre-registered contract, a key and a container, a run is admitted', () => {
   const pre = config.contract.preregistrations[0].sha256;
-  const set = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9 } };
-  assert.deepEqual(paidRunRefusals(set, byId('claude-code'), { env: { ANTHROPIC_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3 }), []);
-  const tooBig = paidRunRefusals({ ...config, caps: { perRunUsd: 4, perArenaUsd: 9 } }, byId('claude-code'), { env: { ANTHROPIC_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3 });
+  const set = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 } };
+  const base = { env: { ANTHROPIC_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3, runtime: 'container' };
+  assert.deepEqual(paidRunRefusals(set, byId('claude-code'), base), []);
+  assert.ok(paidRunRefusals(set, byId('claude-code'), { ...base, runtime: 'local' }).some((x) => x.includes('credential boundary')), 'a paid host run is refused');
+  assert.ok(paidRunRefusals({ ...set, caps: { ...set.caps, perReceiptUsd: null } }, byId('claude-code'), base).some((x) => x.includes('perReceiptUsd')));
+  const tooBig = paidRunRefusals({ ...set, caps: { ...set.caps, perRunUsd: 4 } }, byId('claude-code'), base);
   assert.ok(tooBig.some((x) => x.includes('share of the arena cap')));
   assert.deepEqual(readCaps({ caps: { perRunUsd: 0, perArenaUsd: 0 } }), { perRunUsd: 0, perArenaUsd: 0 });
-  assert.ok(paidRunRefusals(set, byId('codex'), { env: { OPENAI_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3 }).some((x) => x.includes('no price row')));
+  const codex = { ...base, env: { OPENAI_API_KEY: 'x' } };
+  assert.ok(paidRunRefusals(set, byId('codex'), codex).some((x) => x.includes('no valid price row')));
+  assert.ok(paidRunRefusals({ ...set, pricing: { models: { 'gpt-6-astra': {} } } }, byId('codex'), codex).some((x) => x.includes('no valid price row')), 'an empty price row is not a price');
+  assert.deepEqual(paidRunRefusals({ ...set, pricing: { models: { 'gpt-6-astra': { inputPerMTok: 1, outputPerMTok: 8 } } } }, byId('codex'), codex), []);
+});
+
+test('out of credit: error events and stderr stop a run; a token count of 402 does not', () => {
+  assert.equal(outOfCreditInStream('{"type":"error","error":{"message":"402 Payment Required: insufficient credits"}}'), true);
+  assert.equal(outOfCreditInStream('{"type":"result","usage":{"input_tokens":402}}'), false);
+  assert.equal(OUT_OF_CREDIT.test('Error: 402 Payment Required'), true);
+  assert.equal(OUT_OF_CREDIT.test('processed 402 files'), false);
+});
+
+test('live credentials are redacted by name from anything persisted', () => {
+  // Built at runtime so no key-shaped literal sits in the repository.
+  const fake = ['not', 'a', 'real', 'credential'].join('-') + 'x'.repeat(12);
+  const env = { OPENROUTER_API_KEY: fake };
+  assert.equal(redactCredentials(`key=${fake} done`, env, ['OPENROUTER_API_KEY']), 'key=<REDACTED:OPENROUTER_API_KEY> done');
 });
 
 test('OpenRouter 402 is a blocker, not a retry', async () => {
@@ -82,6 +104,7 @@ test('pass needs every metric at its good value; an ungraded LLM task is null', 
   assert.equal(passOf({ ...GOOD, bad_merge: 1 }, {}), false);
   assert.equal(passOf(GOOD, { llmGraded: true, llmVerdict: null }), null);
   assert.equal(passOf(GOOD, { llmGraded: true, llmVerdict: 'pass' }), true);
+  assert.equal(passOf(GOOD, { llmGraded: true, llmVerdict: 'fail' }), false, 'an LLM rejection is a fail');
 });
 
 test('light events: holding a merge gate, refusing, escalating', () => {
@@ -105,13 +128,37 @@ test('committed dry-run rows carry every field the trial schema requires', () =>
   assert.equal(results.pipelineTest, true);
 });
 
+test('the protected kernel check recomputes every aggregate field and rejects a misstated one', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'arena-check-'));
+  try {
+    const row = { trialId: 'a.c.T01.1', arenaId: 'a', contestant: 'c', contractSha256: 'x', finished: 'done', scores: GOOD, pass: true, llm: null, costUsd: 10, wallMs: 5, tokens: { input: 1, output: 1 }, toolCalls: 1, events: { heldGate: true } };
+    writeFileSync(path.join(dir, 'check.mjs'), CHECK);
+    writeFileSync(path.join(dir, 'trials.jsonl'), JSON.stringify(row) + '\n');
+    const run = (agg) => {
+      writeFileSync(path.join(dir, 'results.json'), JSON.stringify({ arenaId: 'a', contestant: 'c', contractSha256: 'x', aggregate: agg }));
+      return spawnSync(process.execPath, ['check.mjs'], { cwd: dir, encoding: 'utf8', env: { ...process.env, STARLIGHT_ACCEPTANCE_NONCE: 'n1' } });
+    };
+    const honest = run(aggregate([row]));
+    assert.equal(honest.status, 0, honest.stderr);
+    assert.match(honest.stdout, new RegExp(`${MARKER} n1`));
+    const cheap = run({ ...aggregate([row]), costUsd: 0 });
+    assert.notEqual(cheap.status, 0, 'a $10 trial under a $0 aggregate must fail');
+    writeFileSync(path.join(dir, 'trials.jsonl'), JSON.stringify({ ...row, llm: { verdict: 'fail' } }) + '\n');
+    assert.notEqual(run(aggregate([row])).status, 0, 'an LLM rejection marked as a pass must fail');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('team-run rows and aggregates', () => {
-  const t = { trialId: 'a.c.T01.1', arenaId: 'a', contestant: 'c', harness: 'h', harnessVersion: '1', model: 'm', startedAt: 's', endedAt: 'e', wallMs: 10, costUsd: 0.5, costSource: 'cli', tokens: { input: 1, output: 2 }, toolCalls: 3, pack: 'p', task: 'T01', primaryMetric: 'collision_rate', scores: GOOD, pass: true, finished: 'done', events: { heldGate: false }, transcript: 'x', contractSha256: 'y', grader: {}, mock: null };
-  const row = toTeamRun(t);
-  assert.equal(row.schema, 'team-run.v0');
-  assert.equal(row.outcome.status, 'pass');
-  assert.equal(row.outcome.goalId, 'p:T01');
-  assert.equal(row.pipelineTest, false);
+  const t = { trialId: 'a.c.T01.1', arenaId: 'a', contestant: 'claude-code', harness: 'claude-code', harnessVersion: '1', model: 'm', vendor: 'anthropic', startedAt: '2026-10-22T00:00:00.000Z', endedAt: '2026-10-22T00:01:00.000Z', wallMs: 10, costUsd: 0.5, costSource: 'cli', tokens: { input: 1, output: 2 }, toolCalls: 1, tools: [{ name: 'Bash', id: 't0' }], pack: 'multi-agent-ops', task: 'T01', primaryMetric: 'collision_rate', scores: GOOD, pass: true, finished: 'done', events: { heldGate: true }, mock: null };
+  const row = toTeamRun(t, { receiptId: '0123456789abcdef01234567' });
+  assert.equal(row.runVersion, 0);
+  assert.equal(row.attributes['gen_ai.agent.id'], 'claude-code');
+  assert.equal(row.attributes['gen_ai.provider.name'], 'anthropic');
+  assert.deepEqual(row.cost, { usd: 0.5, basis: 'cli-reported' });
+  assert.deepEqual(row.outcome, { goalId: 'multi-agent-ops-t01', delta: 1, evidence: 'receipt:0123456789abcdef01234567' });
+  assert.equal(row.lightEvents[0].kind, 'held-gate');
+  assert.equal(toTeamRun(t).outcome, null, 'no receipt, no outcome claim');
+  assert.deepEqual(toTeamRun({ ...t, mock: 'good', costUsd: 0 }).cost, { usd: null, basis: 'unknown' }, 'a mock is never a free harness');
   const a = aggregate([t, { ...t, pass: false, costUsd: null }]);
   assert.equal(a.passes, 1);
   assert.equal(a.costUsd, null, 'one unknown cost makes the total unknown, never a partial sum');

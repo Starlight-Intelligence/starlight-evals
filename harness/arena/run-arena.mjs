@@ -29,23 +29,41 @@ const config = JSON.parse(readFileSync(configPath, 'utf8'));
 const runtime = opt('runtime', 'local');
 const mock = opt('mock') ?? null;
 const pack = opt('pack') && path.resolve(opt('pack'));
-const outDir = path.resolve(opt('out', path.join(REPO, 'harness', 'arena', 'runs', new Date().toISOString().slice(0, 10))));
 const arenaId = opt('arena-id', new Date().toISOString().replace(/[:.]/g, '').slice(0, 15) + 'Z');
+const outDir = path.resolve(opt('out', path.join(REPO, 'harness', 'arena', 'runs', arenaId)));
+const collectOnly = argv.includes('--collect-only');
 const wanted = opt('contestants') ? opt('contestants').split(',') : null;
 const kernelBin = opt('kernel', process.env.STARLIGHT_KERNEL_BIN) && path.resolve(opt('kernel', process.env.STARLIGHT_KERNEL_BIN));
 const contestants = config.contestants.filter((c) => c.harness && (!wanted || wanted.includes(c.id)));
 const notRunnable = config.contestants.filter((c) => !c.harness);
 
-if (!['local', 'docker', 'railway-plan'].includes(runtime) || (!pack && runtime !== 'railway-plan' && !argv.includes('--collect-only')) || !contestants.length) {
+if (!['local', 'docker', 'railway-plan'].includes(runtime) || (!pack && runtime !== 'railway-plan' && !collectOnly) || !contestants.length) {
   console.error('usage: run-arena.mjs --pack DIR [--runtime local|docker|railway-plan] [--tasks T01,T09] [--mock good|bad|noop] [--out DIR]');
   process.exit(EXIT.usage);
 }
+// One arena per directory: a reused destination would mix old rows into new results.
+if (!collectOnly && existsSync(outDir) && readdirSync(outDir).length) { console.error(`${outDir} is not empty; pass a fresh --out (or --collect-only to read bundles already there)`); process.exit(EXIT.usage); }
 mkdirSync(outDir, { recursive: true });
 
+// Kernel graders are model calls through vendor CLIs, and the kernel can meter only Claude's own
+// cost report. A paid receipt therefore needs its own allowance inside the arena cap, and Frank's
+// explicit acceptance of a grader whose spend is not metered.
+const receiptAllowance = (spentUsd) => {
+  const caps = readCaps(config);
+  const per = config.caps?.perReceiptUsd;
+  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0) return { ok: false, why: 'caps.perReceiptUsd is not set' };
+  if (config.kernel?.allowUnmeteredGraders !== true) return { ok: false, why: 'kernel.allowUnmeteredGraders is false: the kernel cannot meter a Codex or Antigravity grader, and accepting that is Frank\'s call' };
+  if (caps.perArenaUsd === null || spentUsd === null || spentUsd + per > caps.perArenaUsd) return { ok: false, why: `the arena cap cannot cover a receipt (spent ${spentUsd ?? 'unknown'} + ${per} > ${caps.perArenaUsd})` };
+  return { ok: true, maxCostUsd: per };
+};
+
+// The Railway plan only writes files, so it needs no spend admission.
+if (runtime === 'railway-plan') { railwayPlan(); process.exit(EXIT.ok); }
+
 // Refuse a paid arena here as well as in each container, so nothing is built or deployed for it.
-if (!mock) {
-  const contractSha = pack ? sha256(readFileSync(path.join(pack, 'evals', 'contract.json'))) : config.contract.sha256;
-  const refusals = contestants.flatMap((c) => paidRunRefusals(config, c, { env: runtime === 'railway-plan' ? Object.fromEntries((c.credentials ?? []).map((x) => [x.env, 'set in Railway'])) : process.env, contractSha, contestantsStarted: contestants.length }).map((r) => `${c.id}: ${r}`));
+if (!mock && !collectOnly) {
+  const contractSha = sha256(readFileSync(path.join(pack, 'evals', 'contract.json')));
+  const refusals = contestants.flatMap((c) => paidRunRefusals(config, c, { env: process.env, contractSha, contestantsStarted: contestants.length, runtime: runtime === 'docker' ? 'container' : 'local' }).map((r) => `${c.id}: ${r}`));
   if (refusals.length) {
     writeFileSync(path.join(outDir, 'refused.json'), JSON.stringify({ arenaId, refusals }, null, 2) + '\n');
     console.error(`paid arena refused before any spend:\n  ${refusals.join('\n  ')}`);
@@ -53,8 +71,10 @@ if (!mock) {
   }
 }
 
-const contestantArgs = (c, packArg, outArg) => ['--contestant', c.id, '--pack', packArg, '--out', outArg, '--arena-id', arenaId, '--contestants-started', String(contestants.length),
-  ...(opt('tasks') ? ['--tasks', opt('tasks')] : []), ...(opt('trials') ? ['--trials', opt('trials')] : []), ...(mock ? ['--mock', mock] : [])];
+function contestantArgs(c, packArg, outArg) {
+  return ['--contestant', c.id, '--pack', packArg, '--out', outArg, '--arena-id', arenaId, '--contestants-started', String(contestants.length),
+    ...(opt('tasks') ? ['--tasks', opt('tasks')] : []), ...(opt('trials') ? ['--trials', opt('trials')] : []), ...(mock ? ['--mock', mock] : [])];
+}
 
 function runLocal(c) {
   return new Promise((resolve) => {
@@ -72,10 +92,14 @@ function runDocker(c) {
   const image = `starlight-arena/${c.id}:${arenaId.toLowerCase()}`;
   const build = spawnSync(cli, ['build', '-f', path.join(REPO, c.image), '-t', image, REPO], { stdio: 'inherit' });
   if (build.status !== 0) return Promise.resolve(build.status ?? 1);
+  // The entrypoint runs as root only to take ownership of /out and fetch the pack, then drops to
+  // the arena user; the selected config is mounted read-only so the container obeys the same caps.
+  mkdirSync(path.join(outDir, c.id), { recursive: true });
   return new Promise((resolve) => {
     const args = ['run', '--rm', '--name', `arena-${c.id}-${arenaId.toLowerCase()}`, '--memory', '6g', '--pids-limit', '1000',
       ...(c.credentials ?? []).flatMap((x) => ['-e', x.env]),
-      '-v', `${pack}:/pack:ro`, '-v', `${path.join(outDir, c.id)}:/out`, image, ...contestantArgs(c, '/pack', '/out')];
+      '-v', `${pack}:/pack:ro`, '-v', `${path.join(outDir, c.id)}:/out`, '-v', `${configPath}:/arena-config.json:ro`,
+      image, '--config', '/arena-config.json', ...contestantArgs(c, '/pack', '/out')];
     const p = spawn(cli, args, { stdio: 'inherit' });
     p.on('close', (code) => resolve(code));
   });
@@ -100,12 +124,12 @@ function railwayPlan() {
   console.log(`railway plan written to ${path.join(outDir, 'railway-plan.json')}; nothing deployed`);
 }
 
-if (runtime === 'railway-plan') { railwayPlan(); process.exit(EXIT.ok); }
-
 // --collect-only reads bundles that containers already wrote into --out (Railway uploads, say).
-if (!argv.includes('--collect-only')) {
+const launch = {};
+if (!collectOnly) {
   console.log(`arena ${arenaId}: ${contestants.map((c) => c.id).join(', ')} on ${opt('tasks') ?? 'all tasks'} (${runtime}${mock ? `, mock ${mock}` : ''})`);
-  await Promise.all(contestants.map((c) => (runtime === 'docker' ? runDocker(c) : runLocal(c))));
+  const codes = await Promise.all(contestants.map((c) => (runtime === 'docker' ? runDocker(c) : runLocal(c))));
+  contestants.forEach((c, i) => { launch[c.id] = codes[i]; });
 }
 
 // ---- collect -------------------------------------------------------------------------------
@@ -129,22 +153,31 @@ function manifest(dir) {
   return lines.length;
 }
 
+let receiptsSpent = 0;
 const results = { schema: 'arena-results.v0', arenaId, createdAt: new Date().toISOString(), pipelineTest: mock !== null, mock, runtime, contract: { ...config.contract, preregistered: false }, caps: readCaps(config), contestants: [], notRun: notRunnable.map((c) => ({ id: c.id, status: c.status, note: c.note })), trials: [] };
 for (const c of contestants) {
   const dir = path.join(outDir, c.id);
   const status = readStatus(dir);
-  const rows = readRows(dir).map(finishLlm);
+  const all = readRows(dir);
+  // Rows from another arena are never mixed into this one's results; their presence is a failure.
+  const rows = all.filter((r) => r.arenaId === arenaId && r.contestant === c.id).map(finishLlm);
   results.contract.preregistered ||= !!status.preregistered;
-  const entry = { id: c.id, harness: c.harness, vendor: c.vendor, model: rows[0]?.model ?? c.model, pins: c.pins, status: status.status, refusals: status.refusals ?? [], blockers: status.blockers ?? [], knownBlockers: c.knownBlockers ?? [], aggregate: aggregate(rows), receipt: null, kernelGap: null };
+  const launchFailed = (launch[c.id] !== undefined && ![EXIT.ok, EXIT.refused].includes(launch[c.id])) || status.status === 'missing' || (status.arenaId && status.arenaId !== arenaId);
+  const entry = { id: c.id, harness: c.harness, vendor: c.vendor, model: rows[0]?.model ?? c.model, pins: c.pins, status: launchFailed ? 'launch-failed' : status.status, launchExit: launch[c.id] ?? null, foreignRows: all.length - rows.length, refusals: status.refusals ?? [], blockers: status.blockers ?? [], knownBlockers: c.knownBlockers ?? [], spentUsd: status.spentUsd ?? null, aggregate: aggregate(rows), receipt: null, kernelGap: null };
+  if (entry.foreignRows) entry.status = 'launch-failed';
   if (rows.length) writeFileSync(path.join(dir, 'trials.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
-  if (rows.length && manifest(dir)) {
+  if (rows.length && !entry.foreignRows && manifest(dir)) {
     const grader = mock ? `shell:${path.join(HERE, 'kernel', 'pipeline-grader.mjs')}` : config.kernel.graders[c.vendor];
+    const spentSoFar = results.contestants.reduce((s, e) => (s === null || e.spentUsd === null ? null : s + e.spentUsd), entry.spentUsd);
+    const allowance = mock ? { ok: true } : receiptAllowance(spentSoFar === null ? null : spentSoFar + receiptsSpent);
     if (!kernelBin || !existsSync(kernelBin)) entry.kernelGap = 'starlight-kernel not available on this machine (pass --kernel or STARLIGHT_KERNEL_BIN)';
     else if (!grader) entry.kernelGap = `no kernel grader is routed for vendor ${c.vendor}; the kernel's vendor list is anthropic, openai, google, xai, local`;
+    else if (!allowance.ok) entry.kernelGap = `no paid receipt: ${allowance.why}`;
     else {
+      if (!mock) receiptsSpent += allowance.maxCostUsd;
       const compact = rows.map(({ details, ...r }) => r);
       const bundle = { schema: 'arena-bundle.v0', arenaId, contestant: c.id, contractSha256: rows[0].contractSha256, pipelineTest: mock !== null, aggregate: entry.aggregate };
-      const r = issueArenaReceipt({ kernelBin, workDir: path.join(outDir, '_kernel'), contestant: c, bundle, rows: compact, evidenceDir: dir, grader });
+      const r = issueArenaReceipt({ kernelBin, workDir: path.join(outDir, '_kernel'), contestant: c, bundle, rows: compact, evidenceDir: dir, grader, maxCostUsd: allowance.maxCostUsd });
       if (r.gap) entry.kernelGap = r.gap;
       else {
         // The receipt and the issuer's public key travel with the results; the kernel home, which
@@ -159,10 +192,12 @@ for (const c of contestants) {
     }
   }
   results.contestants.push(entry);
-  results.trials.push(...rows.map(({ details, ...r }) => r));
+  // Trial transcript paths are relative to the contestant's directory; results.json sits one level up.
+  results.trials.push(...rows.map(({ details, ...r }) => ({ ...r, transcript: r.transcript ? `${c.id}/${r.transcript.replace(/\\/g, '/')}` : r.transcript })));
 }
 writeFileSync(path.join(outDir, 'results.json'), JSON.stringify(results, null, 2) + '\n');
-writeFileSync(path.join(outDir, 'team-run.jsonl'), results.trials.map((t) => JSON.stringify(toTeamRun(t))).join('\n') + (results.trials.length ? '\n' : ''));
+const receiptOf = Object.fromEntries(results.contestants.filter((e) => e.receipt).map((e) => [e.id, e.receipt.id]));
+writeFileSync(path.join(outDir, 'team-run.jsonl'), results.trials.map((t) => JSON.stringify(toTeamRun(t, { receiptId: receiptOf[t.contestant] }))).join('\n') + (results.trials.length ? '\n' : ''));
 
 // ---- table -----------------------------------------------------------------------------------
 const money = (v) => (v === null || v === undefined ? 'unknown' : `$${v.toFixed(4)}`);
@@ -180,3 +215,5 @@ const md = [
 writeFileSync(path.join(outDir, 'RESULTS.md'), md.join('\n'));
 console.log(md.slice(4, 5 + results.contestants.length + results.notRun.length).join('\n'));
 console.log(`\nresults: ${path.join(outDir, 'results.json')}`);
+const failed = results.contestants.filter((e) => e.status === 'launch-failed');
+if (failed.length) { console.error(`launch failed: ${failed.map((e) => `${e.id} (exit ${e.launchExit}, foreign rows ${e.foreignRows})`).join(', ')}`); process.exit(EXIT.error); }

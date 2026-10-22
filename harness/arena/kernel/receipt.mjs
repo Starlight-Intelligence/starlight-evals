@@ -7,27 +7,30 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { aggregate } from '../lib.mjs';
 
-const MARKER = 'ARENA-ACCEPTANCE-COMPLETE';
+export const MARKER = 'ARENA-ACCEPTANCE-COMPLETE';
 // Runs inside the kernel's evaluation directory, written there from the contract, never from the
-// artifact. It must read and delete the nonce before touching artifact data.
-const CHECK = `const nonce = process.env.STARLIGHT_ACCEPTANCE_NONCE;
+// artifact. It must read and delete the nonce before touching artifact data. It carries its own
+// copy of aggregate() (the same source as lib.mjs), so every published aggregate field is
+// recomputed from the rows, not just a few.
+export const CHECK = `const nonce = process.env.STARLIGHT_ACCEPTANCE_NONCE;
 delete process.env.STARLIGHT_ACCEPTANCE_NONCE;
 const fs = await import('node:fs');
+const aggregate = ${aggregate.toString()};
 const results = JSON.parse(fs.readFileSync('results.json', 'utf8'));
 const rows = fs.readFileSync('trials.jsonl', 'utf8').split('\\n').filter(Boolean).map((l) => JSON.parse(l));
 const fail = (m) => { console.error(m); process.exit(1); };
-if (rows.length !== results.aggregate.trials) fail('trial count does not match the aggregate');
 for (const r of rows) {
   if (r.contractSha256 !== results.contractSha256) fail('a trial ran under another contract: ' + r.trialId);
-  if (r.contestant !== results.contestant) fail('a trial belongs to another contestant: ' + r.trialId);
+  if (r.contestant !== results.contestant || r.arenaId !== results.arenaId) fail('a trial belongs to another contestant or arena: ' + r.trialId);
   const good = r.scores.collision === 0 && r.scores.bad_merge === 0 && r.scores.recovery === 1 && r.scores.task_success === 1;
-  if (r.pass !== null && r.pass !== good) fail('pass disagrees with the scores: ' + r.trialId);
+  const verdict = r.llm ? r.llm.verdict : undefined;
+  const expected = r.llm && !['pass', 'fail'].includes(verdict) ? null : good && (!r.llm || verdict === 'pass');
+  if (r.finished !== 'error' && r.pass !== expected) fail('pass disagrees with the scores and verdict: ' + r.trialId);
+  if (r.finished === 'error' && r.pass !== false) fail('an errored trial cannot pass: ' + r.trialId);
 }
-const graded = rows.filter((r) => r.pass !== null && r.finished !== 'blocked');
-const passes = graded.filter((r) => r.pass).length;
-const toolCalls = rows.reduce((s, r) => s + (r.toolCalls || 0), 0);
-if (passes !== results.aggregate.passes || graded.length !== results.aggregate.graded || toolCalls !== results.aggregate.toolCalls) fail('aggregate does not recompute from the trials');
+if (JSON.stringify(aggregate(rows)) !== JSON.stringify(results.aggregate)) fail('aggregate does not recompute from the trials');
 console.log('${MARKER}', nonce);
 `;
 
@@ -40,7 +43,7 @@ function sh(cmd, args, opts = {}) {
  * Returns { receipt, verify } on success, or { gap } when the kernel cannot express this contestant
  * (an unknown vendor, a missing kernel). A gap is reported, never papered over.
  */
-export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows, evidenceDir, grader }) {
+export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows, evidenceDir, grader, maxCostUsd }) {
   const ledger = path.join(workDir, `ledger-${contestant.id}`);
   const home = path.join(workDir, 'kernel-home');
   mkdirSync(ledger, { recursive: true });
@@ -78,7 +81,9 @@ export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows
     repo: ledger, targetRef: 'main', taskClass: 'arena',
     acceptance: { commands: ['node verify-arena.mjs'], files: { 'verify-arena.mjs': CHECK }, completionMarker: MARKER },
     evidence: [{ path: 'transcripts.sha256', role: 'arena-transcripts' }],
-    budget: { maxAttempts: 1 },
+    // The kernel stops a grading that reports more than this; the orchestrator has already reserved
+    // it inside the arena cap.
+    budget: { maxAttempts: 1, ...(maxCostUsd !== undefined ? { maxCostUsd } : {}) },
   };
   writeFileSync(specFile, JSON.stringify(spec));
   const c = kernel('contract', 'create', '--file', specFile);

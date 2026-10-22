@@ -25,7 +25,7 @@
     "startedAt": { "type": "string", "format": "date-time" },
     "endedAt": { "type": "string", "format": "date-time" },
     "wallMs": { "type": "integer", "minimum": 0 },
-    "finished": { "enum": ["done", "timeout", "cap", "error", "blocked"] },
+    "finished": { "enum": ["done", "timeout", "cap", "max_steps", "error", "blocked"] },
     "exitCode": { "type": ["integer", "null"] },
     "tokens": {
       "type": ["object", "null"],
@@ -34,6 +34,7 @@
     "costUsd": { "type": ["number", "null"], "description": "null means unknown, never zero." },
     "costSource": { "enum": ["cli", "pricing"] },
     "toolCalls": { "type": "integer", "minimum": 0 },
+    "tools": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "id": { "type": ["string", "null"] } } }, "description": "One entry per tool call, in order, as the harness named it." },
     "scores": {
       "type": "object",
       "required": ["collision", "bad_merge", "recovery", "task_success"],

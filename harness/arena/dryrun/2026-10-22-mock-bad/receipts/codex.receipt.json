@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T21:41:27.379Z",
+  "issuedAt": "2026-10-22T22:01:05.505Z",
   "taskId": "arena-2026-10-22-mock-bad-codex",
   "verdict": "accept",
-  "artifactSha": "dafd1e93a9ff21ec2bbb79285295ab648d90641a",
-  "targetSha": "49d5f57477c0eeca5cf3b9ebc7e81fc462117c2a",
-  "contractId": "53e21902dbac517c048ec87c489b586a9c5c0fb8a3569a43f39144dac5251d83",
+  "artifactSha": "876a854cde8a50b9b25fec325b533217a6339316",
+  "targetSha": "350f3f49328dcbb2d5469d1234b4f0ee45208fa6",
+  "contractId": "89952cf44559594df6a9747a3c5eac8c4bddaf962134d861c242b53b573bfac3",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:openai",
@@ -28,6 +28,6 @@
       }
     ]
   },
-  "keyId": "31a95f98e3c138d9",
-  "signature": "U/q3pMyw/O9m7Q+D2fVL3ACtfsLAIFS09E/m9/r4TY+ftiwBD2Ip71NBJKro/nyY4CFSLIDZZv6y0QzVZz3GCQ=="
+  "keyId": "829aa93827f2a38f",
+  "signature": "wGqTczv9jJb2pTuXJCN8DthP9uGbkJufarKkDR32+m2phYBHd37Htvic22F/ILZxF5JaKr2PmPdd6gRtl3TSBw=="
 }

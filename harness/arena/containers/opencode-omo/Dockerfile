@@ -27,9 +27,11 @@ RUN mkdir -p /opt/arena-cache /opt/omo && cd /opt/omo \
  && node -e "const c=require('crypto'),f=require('fs');const h='sha512-'+c.createHash('sha512').update(f.readFileSync('oh-my-opencode-2.5.1.tgz')).digest('base64');if(h!=='sha512-D4zcgVQsA9KGo9cJuqQ2JFSwzZxwmiHYlW6eAyvkSJ3KS/ZgOg7AbG3mu+3Vt45Ovuo2DKBoYi3hWfECbkP5hQ=='){console.error('oh-my-opencode 2.5.1 tarball integrity mismatch');process.exit(1)}"
 
 RUN useradd --create-home --uid 10001 arena && mkdir -p /out /pack && chown -R arena:arena /out /pack /opt/arena-cache
-COPY --chown=arena:arena harness/arena /arena/harness/arena
+# Root-owned, so the agent (arena user) cannot rewrite the runner it is measured by.
+COPY harness/arena /arena/harness/arena
 RUN chmod +x /arena/harness/arena/containers/entrypoint.sh
-USER arena
+# The entrypoint starts as root and drops to the arena user before any agent runs.
+ENV ARENA_RUNTIME=container ARENA_CRED_NAMES=OPENROUTER_API_KEY
 WORKDIR /home/arena
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/arena/harness/arena/containers/entrypoint.sh"]

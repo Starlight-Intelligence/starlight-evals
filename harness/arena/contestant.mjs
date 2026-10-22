@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADAPTERS, priceCost } from './adapters.mjs';
-import { EXIT, aggregate, lightEvents, openrouterPreflight, paidRunRefusals, passOf, readCaps, sha256 } from './lib.mjs';
+import { EXIT, OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256 } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -44,6 +44,8 @@ const tasks = contract.tasks.filter((t) => !wanted || wanted.includes(t.id));
 const caps = readCaps(config);
 const share = caps.perArenaUsd === null ? null : caps.perArenaUsd / Math.max(1, contestantsStarted);
 
+// A destination that already holds trials would mix two arenas in one bundle.
+if (existsSync(path.join(outDir, 'trials.jsonl'))) { console.error(`${outDir} already holds trials.jsonl; use a fresh --out`); process.exit(EXIT.usage); }
 mkdirSync(outDir, { recursive: true });
 const status = { arenaId, contestant: contestant.id, harness: contestant.harness, mock, contractSha256: contractSha, preregistered: (config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha), startedAt: new Date().toISOString() };
 const finish = (code, extra) => { writeFileSync(path.join(outDir, 'contestant.json'), JSON.stringify({ ...status, ...extra, endedAt: new Date().toISOString() }, null, 2) + '\n'); process.exit(code); };
@@ -54,7 +56,8 @@ if ((config.contract.dataClass ?? 1) > (contestant.maxDataClass ?? 1)) finish(EX
 
 // A paid run must clear every admission rule before anything is built or called.
 if (!mock) {
-  const refusals = paidRunRefusals(config, contestant, { env: process.env, contractSha, contestantsStarted });
+  // ARENA_RUNTIME is set by the contestant images; a host process stays "local" and is refused.
+  const refusals = paidRunRefusals(config, contestant, { env: process.env, contractSha, contestantsStarted, runtime: process.env.ARENA_RUNTIME === 'container' ? 'container' : 'local' });
   if (refusals.length) finish(EXIT.refused, { status: 'refused', refusals });
   if (contestant.credentials?.some((c) => c.env === 'OPENROUTER_API_KEY')) {
     const pre = await openrouterPreflight(process.env.OPENROUTER_API_KEY);
@@ -93,26 +96,41 @@ function prepareHarnessHome(sb) {
   writeFileSync(path.join(dir, 'oh-my-opencode.json'), JSON.stringify({ agents: { Sisyphus: { model: contestant.model }, 'Planner-Sisyphus': { model: contestant.model }, oracle: sub, librarian: sub, explore: sub }, disabled_agents: ['frontend-ui-ux-engineer', 'multimodal-looker'] }, null, 2));
 }
 
+const costOf = (parsed) => (contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : parsed.costUsd);
+
 function runAgent(task, sb, budgetUsd) {
   const timeoutMs = contract.harness.limits.wallClockSecondsPerTrial * 1000;
   const spec = mock
     ? { cmd: process.execPath, args: [path.join(HERE, 'mock-agent.mjs'), '--harness', contestant.harness, '--reference', mock === 'noop' ? 'noop' : shellPath(path.join(E, 'reference', `${task.id}.${mock}.sh`))], stdin: null }
     : adapter.command({ model: contestant.model, systemPrompt: contract.harness.systemPrompt, prompt: task.prompt, perRunUsd: budgetUsd });
   return new Promise((resolve) => {
-    const p = spawn(spec.cmd, spec.args, { cwd: path.join(sb, 'work'), env: agentEnv(sb), stdio: ['pipe', 'pipe', 'pipe'] });
+    // Its own process group on Linux, so a kill takes the harness's workers and subagents with it.
+    const group = process.platform !== 'win32';
+    const p = spawn(spec.cmd, spec.args, { cwd: path.join(sb, 'work'), env: agentEnv(sb), stdio: ['pipe', 'pipe', 'pipe'], detached: group });
     let out = ''; let err = ''; let finished = 'done'; let lastCheck = 0;
-    const kill = (why) => { finished = why; p.kill('SIGKILL'); };
+    const kill = (why) => {
+      if (finished === 'done') finished = why;
+      try { if (group) process.kill(-p.pid, 'SIGKILL'); else p.kill('SIGKILL'); } catch { p.kill('SIGKILL'); }
+    };
     const timer = setTimeout(() => kill('timeout'), timeoutMs);
     p.stdout.on('data', (d) => {
       out += d;
-      // A CLI that streams its own cost is stopped the moment it crosses this run's budget.
-      if (!mock && budgetUsd !== null && Date.now() - lastCheck > 2000) {
-        lastCheck = Date.now();
-        const c = adapter.parse(out).costUsd;
-        if (c !== null && c > budgetUsd) kill('cap');
-      }
+      if (mock) return;
+      if (outOfCreditInStream(d)) return kill('blocked');
+      if (Date.now() - lastCheck < 250) return;
+      lastCheck = Date.now();
+      const parsed = adapter.parse(out);
+      // The contract's step limit binds every harness the same way, and it bounds spend for a CLI
+      // that reports usage only when a turn ends (Codex), where the cost check below sees nothing
+      // until the turn is over.
+      if (parsed.toolCalls > contract.harness.limits.maxSteps) return kill('max_steps');
+      const c = costOf(parsed);
+      if (budgetUsd !== null && c !== null && c > budgetUsd) kill('cap');
     });
-    p.stderr.on('data', (d) => { if (err.length < 200000) err += d; });
+    p.stderr.on('data', (d) => {
+      if (err.length < 200000) err += d;
+      if (!mock && OUT_OF_CREDIT.test(String(d))) kill('blocked');
+    });
     p.on('error', (e) => { err += String(e.message); finished = 'error'; });
     p.on('close', (code) => { clearTimeout(timer); resolve({ code, out, err, finished: finished === 'done' && code !== 0 ? 'error' : finished }); });
     if (spec.stdin) p.stdin.write(spec.stdin);
@@ -121,46 +139,52 @@ function runAgent(task, sb, budgetUsd) {
 }
 
 const rawFile = path.join(outDir, 'trials.jsonl');
+const credNames = (contestant.credentials ?? []).map((c) => c.env);
+const persist = (text) => redactCredentials(text, process.env, credNames);
 const rows = [];
 let spent = 0;
+let stop = null;
 for (const task of tasks) {
   for (let trial = 1; trial <= trials; trial++) {
     const trialId = `${arenaId}.${contestant.id}.${task.id}.${trial}`;
+    if (stop) { console.log(`${trialId} not started: ${stop.id}`); continue; }
     let budget = caps.perRunUsd;
     if (!mock && share !== null) budget = Math.min(budget, share - spent);
     if (!mock && budget <= 0) { console.log(`${trialId} skipped: arena share spent`); continue; }
     const sb = path.join(root, `${task.id}-${trial}`);
     const startedAt = new Date().toISOString();
     const t0 = Date.now();
-    let row;
+    let row; let run = null; let parsed = null; let costUsd = null;
     try {
       const b = spawnSync('bash', [shellPath(path.join(E, 'fixtures', 'scenarios', `${task.id}.sh`)), shellPath(sb), contestant.fixtureVendor], { encoding: 'utf8', timeout: 120000, env: runtime.env });
       if (b.status !== 0) throw new Error(`fixture ${task.id}: ${(b.stderr || String(b.error)).slice(-400)}`);
       prepareHarnessHome(sb);
-      const run = await runAgent(task, sb, budget);
+      run = await runAgent(task, sb, budget);
       const wallMs = Date.now() - t0;
-      const parsed = adapter.parse(run.out);
-      const costUsd = contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : parsed.costUsd;
+      parsed = adapter.parse(run.out);
+      costUsd = costOf(parsed);
+      // Spend is settled before grading, so a grader failure can never drop a charge.
+      spent += costUsd ?? 0;
+      // Transcripts keep the raw stream. Fixture secrets are fake, but redacting them keeps
+      // published transcripts clear of secret scanners, as the playbook's own runner does; live
+      // credentials are redacted by name from everything persisted.
+      const secrets = JSON.parse(readFileSync(`${sb}.sim/baseline.json`, 'utf8')).secrets || [];
+      let text = persist(run.out + (run.err ? `\n${JSON.stringify({ arenaStderrTail: run.err.slice(-4000) })}\n` : ''));
+      for (const s of secrets) text = text.split(s).join('<FIXTURE-SECRET>');
+      mkdirSync(path.join(outDir, 'transcripts', task.id), { recursive: true });
+      const transcript = `transcripts/${task.id}/${trialId}.jsonl`;
+      writeFileSync(path.join(outDir, transcript), text);
       const g = spawnSync(process.execPath, [path.join(E, 'graders', 'grade.mjs'), task.id, sb], { encoding: 'utf8', env: runtime.env, timeout: 120000 });
       if (g.status !== 0) throw new Error(`grade ${task.id}: ${(g.stderr || String(g.error)).slice(-400)}`);
       const grade = JSON.parse(g.stdout);
       const scores = { collision: grade.collision, bad_merge: grade.bad_merge, recovery: grade.recovery, task_success: grade.task_success };
       const llmGraded = !!grade.llm;
-      // Transcripts keep the raw stream. Fixture secrets are fake, but redacting them keeps
-      // published transcripts clear of secret scanners, as the playbook's own runner does.
-      const secrets = JSON.parse(readFileSync(`${sb}.sim/baseline.json`, 'utf8')).secrets || [];
-      let text = run.out + (run.err ? `\n${JSON.stringify({ arenaStderrTail: run.err.slice(-4000) })}\n` : '');
-      for (const s of secrets) text = text.split(s).join('<FIXTURE-SECRET>');
-      const tdir = path.join(outDir, 'transcripts', task.id);
-      mkdirSync(tdir, { recursive: true });
-      const transcript = path.join('transcripts', task.id, `${trialId}.jsonl`);
-      writeFileSync(path.join(outDir, transcript), text);
       row = {
         schema: 'arena-trial.v0', arenaId, trialId, contestant: contestant.id, harness: contestant.harness, harnessVersion: parsed.harnessVersion ?? contestant.pins?.[Object.keys(contestant.pins)[0]] ?? null,
         model: mock ? 'mock' : (parsed.model ?? contestant.model), vendor: contestant.vendor, fixtureVendor: contestant.fixtureVendor, pack: config.contract.pack, contractSha256: contractSha,
         task: task.id, kind: task.kind, primaryMetric: task.primaryMetric, trial, mock,
         startedAt, endedAt: new Date().toISOString(), wallMs, finished: run.finished, exitCode: run.code,
-        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, toolCalls: parsed.toolCalls,
+        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, toolCalls: parsed.toolCalls, tools: parsed.tools,
         scores, taskDeterministic: grade.taskDeterministic, tampered: grade.tampered,
         llm: llmGraded ? { verdict: null, note: grade.llm.note, evidence: grade.llm.evidence } : null,
         pass: passOf(scores, { llmGraded, llmVerdict: null }),
@@ -168,9 +192,15 @@ for (const task of tasks) {
         grader: { deterministic: 'playbook evals/graders/grade.mjs', llm: llmGraded ? 'pending: finished by the orchestrator with a grader from another vendor' : null },
         systemPromptDelivery: adapter.systemPromptDelivery, transcript, details: grade.details,
       };
-      spent += costUsd ?? 0;
     } catch (e) {
-      row = { schema: 'arena-trial.v0', arenaId, trialId, contestant: contestant.id, harness: contestant.harness, model: mock ? 'mock' : contestant.model, vendor: contestant.vendor, pack: config.contract.pack, contractSha256: contractSha, task: task.id, kind: task.kind, primaryMetric: task.primaryMetric, trial, mock, startedAt, endedAt: new Date().toISOString(), wallMs: Date.now() - t0, finished: 'error', error: String(e.message).slice(0, 1000), tokens: null, costUsd: null, costSource: contestant.costSource, toolCalls: 0, scores: { collision: 1, bad_merge: 1, recovery: 0, task_success: 0 }, pass: false, events: null, llm: null, grader: null };
+      // The model call may already have happened: its tokens and cost are kept, never dropped.
+      row = { schema: 'arena-trial.v0', arenaId, trialId, contestant: contestant.id, harness: contestant.harness, model: mock ? 'mock' : (parsed?.model ?? contestant.model), vendor: contestant.vendor, pack: config.contract.pack, contractSha256: contractSha, task: task.id, kind: task.kind, primaryMetric: task.primaryMetric, trial, mock, startedAt, endedAt: new Date().toISOString(), wallMs: Date.now() - t0, finished: run?.finished === 'blocked' ? 'blocked' : 'error', error: persist(String(e.message)).slice(0, 1000), tokens: parsed?.tokens ?? null, costUsd, costSource: contestant.costSource, toolCalls: parsed?.toolCalls ?? 0, tools: parsed?.tools ?? [], scores: { collision: 1, bad_merge: 1, recovery: 0, task_success: 0 }, pass: false, events: null, llm: null, grader: null };
+    }
+    // Paid work stops for this contestant once spend is no longer known, or the provider is out of
+    // credit. Neither is retried.
+    if (!mock && run) {
+      if (run.finished === 'blocked') stop = { id: 'provider-out-of-credit', detail: 'the provider reported no credit (402 or equivalent) during a run; not retried' };
+      else if (costUsd === null) stop = { id: 'cost-unknown', detail: `${trialId} spent an unknown amount, so the cap can no longer be enforced` };
     }
     if (!flag('keep')) for (const p of [sb, `${sb}.sim`]) rmSync(p, { recursive: true, force: true, maxRetries: 3 });
     appendFileSync(rawFile, JSON.stringify(row) + '\n');
@@ -179,4 +209,4 @@ for (const task of tasks) {
   }
 }
 if (!flag('keep') && existsSync(root)) rmSync(root, { recursive: true, force: true, maxRetries: 3 });
-finish(EXIT.ok, { status: 'ran', aggregate: aggregate(rows) });
+finish(EXIT.ok, { status: stop ? 'blocked' : 'ran', ...(stop ? { blockers: [stop] } : {}), spentUsd: mock ? null : spent, aggregate: aggregate(rows) });

@@ -6,7 +6,7 @@ const lines = (text) => String(text).split(/\r?\n/).map((l) => { try { return JS
 const num = (v) => (Number.isFinite(+v) ? +v : 0);
 
 function empty() {
-  return { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, costUsd: null, toolCalls: 0, commands: [], finalText: '', model: null, harnessVersion: null };
+  return { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, costUsd: null, toolCalls: 0, tools: [], commands: [], finalText: '', model: null, harnessVersion: null };
 }
 
 export const ADAPTERS = {
@@ -29,7 +29,7 @@ export const ADAPTERS = {
         if (e.type === 'system' && e.subtype === 'init') { r.model = e.model ?? r.model; r.harnessVersion = e.claude_code_version ?? r.harnessVersion; }
         if (e.type === 'assistant') {
           for (const b of e.message?.content ?? []) {
-            if (b.type === 'tool_use') { r.toolCalls++; if (b.input?.command) r.commands.push(String(b.input.command)); }
+            if (b.type === 'tool_use') { r.toolCalls++; r.tools.push({ name: b.name, id: b.id }); if (b.input?.command) r.commands.push(String(b.input.command)); }
             if (b.type === 'text' && b.text) r.finalText = b.text;
           }
         }
@@ -64,6 +64,7 @@ export const ADAPTERS = {
         const item = e.item ?? {};
         if (e.type === 'item.completed' && ['command_execution', 'mcp_tool_call', 'file_change', 'web_search'].includes(item.type)) {
           r.toolCalls++;
+          r.tools.push({ name: item.type === 'mcp_tool_call' ? (item.tool ?? item.type) : item.type, id: item.id });
           if (item.command) r.commands.push(String(item.command));
         }
         if (e.type === 'item.completed' && item.type === 'agent_message' && item.text) r.finalText = item.text;
@@ -97,6 +98,7 @@ export const ADAPTERS = {
         const p = e.part ?? {};
         if (e.type === 'tool_use' || p.type === 'tool') {
           r.toolCalls++;
+          r.tools.push({ name: p.tool ?? 'tool', id: p.callID });
           const cmd = p.state?.input?.command;
           if (cmd) r.commands.push(String(cmd));
         }
