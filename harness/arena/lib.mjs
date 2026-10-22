@@ -2,6 +2,8 @@
 // the mapping to Team Card's team-run rows. The contestant runner and the orchestrator both use
 // these, so the two cannot disagree about what a run may spend or what counts as a pass.
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import path from 'node:path';
 
 export const EXIT = { ok: 0, error: 1, usage: 2, contract: 3, refused: 4 };
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
@@ -44,7 +46,11 @@ export function keyCeiling(config, contestantsStarted) {
   return share === null || run === null ? null : Math.min(run, share);
 }
 
-const hardCapOk = (hc, ceiling) => !!hc && typeof hc.mechanism === 'string' && hc.mechanism.length > 0 && isNum(hc.limitUsd) && ceiling !== null && hc.limitUsd <= ceiling;
+// Only mechanisms that refuse a request once the limit is reached, never reset during an arena, and
+// can be read back before a run. A project "budget" that only alerts (OpenAI's) is not one. Today
+// that is an OpenRouter key with a non-resetting limit; a reserving gateway would be the other.
+export const ENFORCING_MECHANISMS = ['openrouter-key-limit'];
+const hardCapOk = (hc, ceiling) => !!hc && ENFORCING_MECHANISMS.includes(hc.mechanism) && isNum(hc.limitUsd) && ceiling !== null && hc.limitUsd <= ceiling;
 
 /** Every reason a paid Kernel grading may not start. Empty means admitted. */
 export function receiptRefusals(config, { contractSha }) {
@@ -56,7 +62,7 @@ export function receiptRefusals(config, { contractSha }) {
   if (!isNum(per)) out.push('caps.perReceiptUsd is not set: the Kernel grader is a paid model call too');
   if (contractSha !== config.contract.sha256) out.push(`collected contract ${String(contractSha).slice(0, 12)} is not the pinned ${config.contract.sha256.slice(0, 12)}`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${String(contractSha).slice(0, 12)} has no public pre-registration`);
-  if (!hardCapOk(config.kernel?.graderHardCap, isNum(per) ? per : null)) out.push('kernel.graderHardCap must name a provider-enforced spend limit at or under caps.perReceiptUsd');
+  if (!hardCapOk(config.kernel?.graderHardCap, isNum(per) ? per : null)) out.push(`kernel.graderHardCap must be an enforcing limit (${ENFORCING_MECHANISMS.join(', ')}) at or under caps.perReceiptUsd; the Kernel's Codex and Claude graders use their own vendor keys, so no paid receipt is admitted until a grader runs behind one`);
   return out;
 }
 
@@ -77,7 +83,8 @@ export function paidRunRefusals(config, contestant, { env, contractSha, contesta
   }
   // The provider's limit is the real per-run bound, so it must fit the per-run cap as well as the share.
   const ceiling = keyCeiling(config, contestantsStarted);
-  if (!hardCapOk(contestant.hardCap, ceiling)) out.push(`${contestant.id}.hardCap must name a provider-enforced spend limit at or under min(caps.perRunUsd, share) = ${ceiling ?? 'unset'}`);
+  if (!hardCapOk(contestant.hardCap, ceiling)) out.push(`${contestant.id}.hardCap must be an enforcing limit (${ENFORCING_MECHANISMS.join(', ')}) at or under min(caps.perRunUsd, share) = ${ceiling ?? 'unset'}`);
+  if (contestant.hardCap?.mechanism === 'openrouter-key-limit' && !(contestant.credentials ?? []).some((c) => c.env === 'OPENROUTER_API_KEY')) out.push(`${contestant.id} declares an OpenRouter key limit but does not run on an OpenRouter key`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${contractSha.slice(0, 12)} has no public pre-registration`);
   if (contestant.costSource === 'pricing' && !validRates(config.pricing?.models?.[contestant.model])) out.push(`no valid price row for ${contestant.model} (finite inputPerMTok and outputPerMTok), so its cost cannot be capped`);
   // A paid contestant run implies a paid receipt later, so the grader's limits are checked up front.
@@ -97,7 +104,7 @@ export async function openrouterPreflight(key, fetchImpl = fetch) {
   if (!res.ok) return { ok: false, blocker: `openrouter-${res.status}`, detail: `OpenRouter key check returned ${res.status}. Not retried.` };
   const d = (await res.json())?.data ?? {};
   if (d.limit_remaining !== undefined && d.limit_remaining !== null && d.limit_remaining <= 0) return { ok: false, blocker: 'openrouter-402', detail: 'OpenRouter key has no remaining limit. Not retried.' };
-  return { ok: true, limit: typeof d.limit === 'number' ? d.limit : null, usage: typeof d.usage === 'number' ? d.usage : null };
+  return { ok: true, limit: typeof d.limit === 'number' ? d.limit : null, limitReset: d.limit_reset ?? null, usage: typeof d.usage === 'number' ? d.usage : null };
 }
 
 /**
@@ -114,6 +121,22 @@ export async function openrouterKeyUsage(key, fetchImpl = fetch) {
   } catch { return null; }
 }
 
+/**
+ * A provider counter is settled when two reads `intervalMs` apart agree. Until then, or if any read
+ * fails, the spend is unknown (null), never the last value seen.
+ */
+export async function settledUsage(read, { intervalMs = 5000, maxMs = 90000, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  let prev = null;
+  for (let waited = 0; waited <= maxMs; waited += intervalMs) {
+    await sleep(intervalMs);
+    const now = await read();
+    if (now === null) return null;
+    if (prev !== null && now === prev) return now;
+    prev = now;
+  }
+  return null;
+}
+
 /** A trial passes only when every playbook metric is at its good value. An ungraded LLM task is null, not a fail. */
 export function passOf(scores, { llmGraded, llmVerdict }) {
   if (llmGraded && !['pass', 'fail'].includes(llmVerdict)) return null;
@@ -126,6 +149,22 @@ export function passOf(scores, { llmGraded, llmVerdict }) {
 export const OUT_OF_CREDIT = /\b402\b[^\n]{0,60}(payment|credit|required)|payment required|insufficient (credit|credits|balance|funds)|credit balance is too low|exceeded your current quota/i;
 /** True when a chunk of a harness's stdout holds an error event that reports no credit. */
 export const outOfCreditInStream = (chunk) => String(chunk).split(/\r?\n/).some((l) => /"(type|subtype)"\s*:\s*"[^"]*error[^"]*"/i.test(l) && OUT_OF_CREDIT.test(l));
+
+/** Files under `dir` holding the value of any named credential, as "path: NAME". Values never returned. */
+export function findCredentials(dir, env, names) {
+  const values = names.map((n) => [n, env[n]]).filter(([, v]) => v && v.length >= 8);
+  const hits = [];
+  if (!values.length || !existsSync(dir)) return hits;
+  const walk = (d) => {
+    for (const f of readdirSync(d)) {
+      const p = path.join(d, f);
+      if (statSync(p).isDirectory()) walk(p);
+      else { const text = readFileSync(p, 'utf8'); for (const [n, v] of values) if (text.includes(v)) hits.push(`${path.relative(dir, p)}: ${n}`); }
+    }
+  };
+  walk(dir);
+  return hits;
+}
 
 /** Replace every injected credential value with its name before anything is persisted. */
 export function redactCredentials(text, env, names) {
@@ -205,7 +244,9 @@ export function toTeamRun(t, { receiptId } = {}) {
 
 /** Per-contestant aggregates for the results table. */
 export function aggregate(trials) {
-  const graded = trials.filter((t) => t.pass !== null && t.finished !== 'blocked');
+  // Every attempted trial with an outcome counts, a run stopped mid-way by a 402 included. Preflight
+  // blockers never become rows, so they cannot enter this denominator.
+  const graded = trials.filter((t) => t.pass !== null);
   const sum = (f) => trials.reduce((s, t) => s + (f(t) ?? 0), 0);
   const costs = trials.map((t) => t.costUsd).filter((c) => c !== null && c !== undefined);
   const passes = graded.filter((t) => t.pass).length;

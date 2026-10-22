@@ -16,7 +16,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EXIT, aggregate, paidRunRefusals, passOf, readCaps, receiptRefusals, sha256, toTeamRun } from './lib.mjs';
+import { EXIT, aggregate, findCredentials, paidRunRefusals, passOf, readCaps, receiptRefusals, sha256, toTeamRun } from './lib.mjs';
 import { issueArenaReceipt } from './kernel/receipt.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -173,6 +173,9 @@ const collected = contestants.map((c) => {
   const launchFailed = (launch[c.id] !== undefined && ![EXIT.ok, EXIT.refused].includes(launch[c.id])) || status.status === 'missing' || (status.arenaId && status.arenaId !== arenaId);
   const entry = { id: c.id, harness: c.harness, vendor: c.vendor, model: rows[0]?.model ?? c.model, pins: c.pins, status: launchFailed ? 'launch-failed' : status.status, launchExit: launch[c.id] ?? null, foreignRows: all.length - rows.length, refusals: status.refusals ?? [], blockers: status.blockers ?? [], knownBlockers: c.knownBlockers ?? [], spentUsd: mock ? 0 : (status.spentUsd ?? null), aggregate: aggregate(rows), receipt: null, kernelGap: null };
   if (entry.foreignRows) entry.status = 'launch-failed';
+  // A bundle holding any of this contestant's credential values is neither published nor graded.
+  const leaks = findCredentials(dir, process.env, (c.credentials ?? []).map((x) => x.env));
+  if (leaks.length) { entry.status = 'credential-found'; entry.leaks = leaks; return { c, dir, rows: [], entry: { ...entry, aggregate: aggregate([]) } }; }
   if (rows.length) writeFileSync(path.join(dir, 'trials.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
   return { c, dir, rows, entry };
 });
@@ -231,5 +234,5 @@ const md = [
 writeFileSync(path.join(outDir, 'RESULTS.md'), md.join('\n'));
 console.log(md.slice(4, 5 + results.contestants.length + results.notRun.length).join('\n'));
 console.log(`\nresults: ${path.join(outDir, 'results.json')}`);
-const failed = results.contestants.filter((e) => e.status === 'launch-failed');
+const failed = results.contestants.filter((e) => e.status === 'launch-failed' || e.status === 'credential-found');
 if (failed.length) { console.error(`launch failed: ${failed.map((e) => `${e.id} (exit ${e.launchExit}, foreign rows ${e.foreignRows})`).join(', ')}`); process.exit(EXIT.error); }

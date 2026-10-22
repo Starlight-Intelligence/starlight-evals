@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:36:22.471Z",
+  "issuedAt": "2026-10-22T22:48:39.142Z",
   "taskId": "arena-2026-10-22-mock-bad-codex",
   "verdict": "accept",
-  "artifactSha": "6203c8c6977be83bacc9e6abe0b8d46a7a3a5e7f",
-  "targetSha": "bb978427cacad7a41cf58f9e66bf151e52621314",
-  "contractId": "b24f2aa1ed6adfbaff84c8f9b9e01bc7482e67441bd5d6160134885746aea6e4",
+  "artifactSha": "f423c3052d3a5bcd47bff99755e015e984ce67f6",
+  "targetSha": "1d8abcc158ee54cfda783bb9b0461b39cb8769a1",
+  "contractId": "ef501cb3e9fcffd0069a98a45b86436fe8e5dfcafdc75364164aed81ebcad72f",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:openai",
@@ -38,6 +38,6 @@
       }
     ]
   },
-  "keyId": "d1cae52812ad1a6d",
-  "signature": "Q1tCYynfq85lYHq2TB+blD8PUDRFg/W/stPZUbK6qB8LUvYV2cMgZB1QtcPLZvNQmflzYtol5FPbKzCmY4O3Ag=="
+  "keyId": "0bf8d8357987f231",
+  "signature": "Lgu4dfs58SNAPlqaaeMXu4mInrMRSIK3sD7/SdDhglgkjjpAUbZ8dJEjVBSqNrlrn/5UIgwuD9Db21OpkwKJBw=="
 }

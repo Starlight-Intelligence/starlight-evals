@@ -40,7 +40,7 @@
     },
     "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs",
     "graderHardCap": null,
-    "graderHardCapNote": "A provider-enforced spend limit on the grader's key, at or under caps.perReceiptUsd, e.g. { \"mechanism\": \"OpenAI project budget hard limit\", \"limitUsd\": 0.5 }. Null refuses every paid receipt."
+    "graderHardCapNote": "An enforcing limit (openrouter-key-limit) at or under caps.perReceiptUsd for the Kernel grader. The Kernel's Codex and Claude graders call their vendors with their own keys, so until a grader runs behind such a key every paid receipt is refused. Null refuses every paid receipt."
   },
   "contestants": [
     {
@@ -123,5 +123,5 @@
       "note": "No eve or Flue agent was found that runs these tasks without a rewrite. eve (starlight-factory) drives a Vercel Sandbox from a GitHub or Linear channel; the tasks need a local git repo, the gh simulator on PATH and a bash tool. Flue: no estate note or GitHub search result on 2026-10-22 identified which Flue is meant."
     }
   ],
-  "hardCapNote": "Each runnable contestant needs hardCap: { mechanism, limitUsd }, a spend limit the provider enforces before each request (an OpenRouter key limit, an Anthropic workspace spend limit), at or under its share: (perArenaUsd - perReceiptUsd x contestants) / contestants. The arena's own cap stops a run only after a charge is reported, so this is what bounds spend. OpenRouter's limit is read back and checked live; other providers' limits are declared, not verified. Null refuses every paid run."
+  "hardCapNote": "Each runnable contestant needs hardCap: { \"mechanism\": \"openrouter-key-limit\", \"limitUsd\": n }: an isolated OpenRouter key whose limit never resets, at or under min(caps.perRunUsd, share), where share = (perArenaUsd - perReceiptUsd x contestants) / contestants. The limit is read back before a run and a resetting limit is refused. It is the only accepted mechanism today: an OpenAI project budget only alerts and does not stop requests, and Anthropic workspace limits reset monthly and cannot be read back from here. Claude Code and Codex therefore need to run behind an OpenRouter key (or a reserving gateway, not built) before they can be paid contestants. Null refuses every paid run."
 }

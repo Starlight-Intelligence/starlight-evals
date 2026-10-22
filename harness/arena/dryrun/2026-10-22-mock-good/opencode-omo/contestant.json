@@ -5,7 +5,7 @@
   "mock": "good",
   "contractSha256": "db89491f73fe41c43a77a6b02565e460b1187ac0898f6a8fd9b99d7406829d36",
   "preregistered": false,
-  "startedAt": "2026-10-22T22:35:47.261Z",
+  "startedAt": "2026-10-22T22:48:03.586Z",
   "status": "ran",
   "spentUsd": 0,
   "aggregate": {
@@ -14,7 +14,7 @@
     "passes": 2,
     "passRate": 1,
     "blocked": 0,
-    "wallMs": 10838,
+    "wallMs": 11306,
     "costUsd": 0,
     "costPerPassUsd": 0,
     "tokens": {
@@ -28,5 +28,5 @@
       "heldGate": 1
     }
   },
-  "endedAt": "2026-10-22T22:35:59.296Z"
+  "endedAt": "2026-10-22T22:48:16.256Z"
 }

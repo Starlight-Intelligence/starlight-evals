@@ -27,7 +27,7 @@ chown root:root /out && chmod 0755 /out
 # and the arena markers. The playbook token and the upload URL are unset before it starts.
 status=0
 (
-  keep=" PATH LANG TZ XDG_CACHE_HOME ARENA_RUNTIME ARENA_AGENT_USER ${ARENA_CRED_NAMES:-} "
+  keep=" PATH LANG TZ XDG_CACHE_HOME ARENA_RUNTIME ARENA_AGENT_USER ARENA_GRADER_USER ${ARENA_CRED_NAMES:-} "
   for name in $(compgen -e); do
     case "$keep" in *" $name "*) ;; *) unset "$name" ;; esac
   done
@@ -35,10 +35,11 @@ status=0
   exec node /arena/harness/arena/contestant.mjs "$@"
 ) || status=$?
 
+# Every bundle is scanned, uploaded or not: a credential value anywhere under /out fails the run.
+node /arena/harness/arena/containers/scan-out.mjs /out || exit 3
+
 if [ -n "${ARENA_UPLOAD_URL:-}" ]; then
-  # Only files the supervisor writes leave the container, and only after no injected credential
-  # value is found in any of them.
-  node /arena/harness/arena/containers/scan-out.mjs /out
+  # Only files the supervisor writes leave the container.
   tar -czf /tmp/arena-out.tgz -C /out contestant.json $(cd /out && ls trials.jsonl 2>/dev/null) $(cd /out && ls -d transcripts 2>/dev/null)
   # The presigned URL is a bearer credential: curl reads it from its config on stdin, not argv.
   printf 'url = "%s"\n' "$ARENA_UPLOAD_URL" | curl --fail --silent --show-error -X PUT --upload-file /tmp/arena-out.tgz --config -

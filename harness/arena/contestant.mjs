@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADAPTERS, priceCost } from './adapters.mjs';
-import { EXIT, OUT_OF_CREDIT, aggregate, keyCeiling, lightEvents, openrouterKeyUsage, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256, shareOf } from './lib.mjs';
+import { EXIT, OUT_OF_CREDIT, aggregate, keyCeiling, lightEvents, openrouterKeyUsage, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, settledUsage, sha256, shareOf } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -48,7 +48,7 @@ const share = shareOf(config, contestantsStarted);
 if (existsSync(path.join(outDir, 'trials.jsonl'))) { console.error(`${outDir} already holds trials.jsonl; use a fresh --out`); process.exit(EXIT.usage); }
 mkdirSync(outDir, { recursive: true });
 const status = { arenaId, contestant: contestant.id, harness: contestant.harness, mock, contractSha256: contractSha, preregistered: (config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha), startedAt: new Date().toISOString() };
-const finish = (code, extra) => { writeFileSync(path.join(outDir, 'contestant.json'), JSON.stringify({ ...status, ...extra, endedAt: new Date().toISOString() }, null, 2) + '\n'); process.exit(code); };
+const finish = (code, extra) => { writeFileSync(path.join(outDir, 'contestant.json'), redactCredentials(JSON.stringify({ ...status, ...extra, endedAt: new Date().toISOString() }, null, 2), process.env, (contestant?.credentials ?? []).map((c) => c.env)) + '\n'); process.exit(code); };
 
 // In a container this supervisor is root and every agent runs as ARENA_AGENT_USER, so the agent can
 // write neither /out, the pack, the grader nor this process's memory. An agent never runs as root.
@@ -58,6 +58,15 @@ if (typeof process.getuid === 'function' && process.getuid() === 0) {
   const id = (flag) => Number((spawnSync('id', [flag, String(name)], { encoding: 'utf8' }).stdout || '').trim());
   agentUser = name ? { name, uid: id('-u'), gid: id('-g') } : null;
   if (!agentUser || !Number.isInteger(agentUser.uid) || agentUser.uid === 0) finish(EXIT.refused, { status: 'refused', refusals: ['running as root needs ARENA_AGENT_USER naming an unprivileged user for the agent'] });
+}
+// Grading executes candidate code (tests, archived CI), so it runs as a third user that holds no
+// credential and can write nothing of the supervisor's; only its JSON verdict comes back.
+let graderUser = null;
+if (agentUser) {
+  const name = process.env.ARENA_GRADER_USER;
+  const id = (flag) => Number((spawnSync('id', [flag, String(name)], { encoding: 'utf8' }).stdout || '').trim());
+  graderUser = name ? { name, uid: id('-u'), gid: id('-g') } : null;
+  if (!graderUser || !Number.isInteger(graderUser.uid) || graderUser.uid === 0 || graderUser.uid === agentUser.uid) finish(EXIT.refused, { status: 'refused', refusals: ['running as root needs ARENA_GRADER_USER naming an unprivileged user distinct from the agent'] });
 }
 
 if (contractSha !== config.contract.sha256) finish(EXIT.contract, { status: 'refused', refusals: [`contract.json is ${contractSha}, config pins ${config.contract.sha256}`] });
@@ -75,6 +84,8 @@ if (!mock) {
     // OpenRouter's key limit is the one hard cap the arena can read back; it must exist and fit the share.
     const ceiling = keyCeiling(config, contestantsStarted);
     if (pre.limit === null || pre.limit > ceiling) finish(EXIT.refused, { status: 'refused', refusals: [`the OpenRouter key's limit (${pre.limit ?? 'none'}) must be set and at or under min(caps.perRunUsd, share) = ${ceiling}`] });
+    // A limit that resets (daily, weekly, monthly) can be spent twice by a run that spans the reset.
+    if (pre.limitReset !== null) finish(EXIT.refused, { status: 'refused', refusals: [`the OpenRouter key's limit resets (${pre.limitReset}); the arena needs an isolated key whose limit never resets`] });
   }
 }
 
@@ -173,8 +184,15 @@ function runAgent(task, sb, budgetUsd) {
 const rawFile = path.join(outDir, 'trials.jsonl');
 const credNames = (contestant.credentials ?? []).map((c) => c.env);
 const persist = (text) => redactCredentials(text, process.env, credNames);
-// Grading runs as root over a tree the agent owns; git refuses that without an explicit safe.directory.
-const graderEnv = agentUser ? { ...runtime.env, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: '*' } : runtime.env;
+// The grader user gets a toolchain PATH, its own empty HOME and nothing else: no credential, no
+// supervisor variable. git needs safe.directory because the agent owns the trees it reads.
+let graderEnv = runtime.env;
+if (graderUser) {
+  const home = path.join(root, 'grader-home');
+  mkdirSync(home, { recursive: true });
+  spawnSync('chown', [`${graderUser.uid}:${graderUser.gid}`, home]);
+  graderEnv = { PATH: process.env.PATH, LANG: process.env.LANG ?? 'C.UTF-8', HOME: home, TMPDIR: home, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: '*' };
+}
 const rows = [];
 // Once any charge is unknown the running total is unknown too, and stays so.
 let spent = 0;
@@ -186,6 +204,11 @@ for (const task of tasks) {
     let budget = caps.perRunUsd;
     if (!mock && share !== null && spent !== null) budget = Math.min(budget, share - spent);
     if (!mock && budget <= 0) { console.log(`${trialId} skipped: arena share spent`); continue; }
+    // A 'provider' contestant's spend is the provider's own counter before and after the run, which
+    // covers subagents the stream never shows. No baseline, no launch.
+    const providerKey = contestant.costSource === 'provider' && !mock ? process.env.OPENROUTER_API_KEY : null;
+    const usageBefore = providerKey ? await openrouterKeyUsage(providerKey) : null;
+    if (providerKey && usageBefore === null) { stop = { id: 'provider-accounting-unavailable', detail: `the OpenRouter usage counter could not be read before ${trialId}; not launched` }; console.log(`${trialId} not started: ${stop.id}`); continue; }
     const sb = path.join(root, `${task.id}-${trial}`);
     const startedAt = new Date().toISOString();
     const t0 = Date.now();
@@ -197,10 +220,6 @@ for (const task of tasks) {
       // The agent owns its sandbox and the simulator state it writes through gh; the pack, the
       // grader and /out stay root's.
       if (agentUser) for (const p of [sb, `${sb}.sim`]) spawnSync('chown', ['-R', `${agentUser.uid}:${agentUser.gid}`, p]);
-      // A 'provider' contestant's spend is the provider's own counter before and after the run, which
-      // covers subagents the stream never shows. The key is isolated to this contestant (hardCap).
-      const providerKey = contestant.costSource === 'provider' && !mock ? process.env.OPENROUTER_API_KEY : null;
-      const usageBefore = providerKey ? await openrouterKeyUsage(providerKey) : null;
       run = await runAgent(task, sb, budget);
       const wallMs = Date.now() - t0;
       parsed = adapter.parse(run.out);
@@ -208,10 +227,11 @@ for (const task of tasks) {
       if (contestant.costSource === 'provider') {
         if (mock) costUsd = parsed.parentCostUsd ?? null;
         else {
-          // OpenRouter's counter can trail the last request by a few seconds.
-          await new Promise((r) => setTimeout(r, 5000));
-          const usageAfter = await openrouterKeyUsage(providerKey);
-          costUsd = usageBefore !== null && usageAfter !== null && usageAfter >= usageBefore ? usageAfter - usageBefore : null;
+          // The counter trails the last request; it counts only once two reads agree. A total below
+          // what the parent session alone reported is not settled either.
+          const usageAfter = await settledUsage(() => openrouterKeyUsage(providerKey));
+          const delta = usageAfter !== null && usageAfter >= usageBefore ? usageAfter - usageBefore : null;
+          costUsd = delta !== null && (parsed.parentCostUsd ?? 0) <= delta + 1e-9 ? delta : null;
         }
       }
       // Spend is settled before grading, so a grader failure can never drop a charge.
@@ -225,7 +245,7 @@ for (const task of tasks) {
       mkdirSync(path.join(outDir, 'transcripts', task.id), { recursive: true });
       const transcript = `transcripts/${task.id}/${trialId}.jsonl`;
       writeFileSync(path.join(outDir, transcript), text);
-      const g = spawnSync(process.execPath, [path.join(E, 'graders', 'grade.mjs'), task.id, sb], { encoding: 'utf8', env: graderEnv, timeout: 120000 });
+      const g = spawnSync(process.execPath, [path.join(E, 'graders', 'grade.mjs'), task.id, sb], { encoding: 'utf8', env: graderEnv, timeout: 120000, ...(graderUser ? { uid: graderUser.uid, gid: graderUser.gid } : {}) });
       if (g.status !== 0) throw new Error(`grade ${task.id}: ${(g.stderr || String(g.error)).slice(-400)}`);
       const grade = JSON.parse(g.stdout);
       const scores = { collision: grade.collision, bad_merge: grade.bad_merge, recovery: grade.recovery, task_success: grade.task_success };
@@ -255,7 +275,11 @@ for (const task of tasks) {
       else if (costUsd === null) stop = { id: 'cost-unknown', detail: `${trialId} spent an unknown amount, so the cap can no longer be enforced` };
     }
     if (!flag('keep')) for (const p of [sb, `${sb}.sim`]) rmSync(p, { recursive: true, force: true, maxRetries: 3 });
-    appendFileSync(rawFile, JSON.stringify(row) + '\n');
+    // The whole row is redacted, not just the transcript: grader evidence (handoff notes, PR bodies)
+    // carries text the agent wrote.
+    const safe = persist(JSON.stringify(row));
+    appendFileSync(rawFile, safe + '\n');
+    row = JSON.parse(safe);
     rows.push(row);
     console.log(`${row.trialId} ${row.finished} pass=${row.pass} c=${row.scores.collision} b=${row.scores.bad_merge} r=${row.scores.recovery} s=${row.scores.task_success} tools=${row.toolCalls} cost=${row.costUsd}`);
   }

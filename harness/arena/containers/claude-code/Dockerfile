@@ -11,12 +11,13 @@ ENV PNPM_HOME=/usr/local/pnpm PATH=/usr/local/pnpm:$PATH
 RUN corepack enable pnpm && pnpm add -g @anthropic-ai/claude-code@2.1.303 && claude --version
 
 # Claude Code refuses bypassPermissions as root; the agent always runs as the arena user.
-RUN useradd --create-home --uid 10001 arena && mkdir -p /out /pack
+# arena runs the agent; arena-grader runs the playbook's grader over candidate code; neither holds a credential the other needs.
+RUN useradd --create-home --uid 10001 arena && useradd --uid 10002 arena-grader && mkdir -p /out /pack
 # Root-owned, so the agent (arena user) cannot rewrite the runner it is measured by.
 COPY harness/arena /arena/harness/arena
 RUN chmod +x /arena/harness/arena/containers/entrypoint.sh
 # The supervisor stays root; every agent runs as the arena user, which owns only its sandbox.
-ENV ARENA_RUNTIME=container ARENA_AGENT_USER=arena ARENA_CRED_NAMES=ANTHROPIC_API_KEY
+ENV ARENA_RUNTIME=container ARENA_AGENT_USER=arena ARENA_GRADER_USER=arena-grader ARENA_CRED_NAMES=ANTHROPIC_API_KEY
 WORKDIR /home/arena
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/arena/harness/arena/containers/entrypoint.sh"]

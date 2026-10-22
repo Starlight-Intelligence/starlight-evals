@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:36:20.353Z",
+  "issuedAt": "2026-10-22T22:48:36.953Z",
   "taskId": "arena-2026-10-22-mock-bad-claude-code",
   "verdict": "accept",
-  "artifactSha": "413a459a616d199f207e0c4d3e3eb22b57dd68f5",
-  "targetSha": "63740d5234dd70d67b1ab097c3f35454c90f6c70",
-  "contractId": "dfaa8e1281d0e8aa73ba1c5551975484cc29c004400106e21d5f7037043689eb",
+  "artifactSha": "f7e1a5cc26c0e73b2df6a8507e76a212b5557b85",
+  "targetSha": "6171a0b6ba1231d01fb012dd43800b25c8d7814d",
+  "contractId": "7a45f2f668d6dd82f9c0d72279e1c0260f240fc1b787aa8534d9409a60ace9cb",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:anthropic",
@@ -38,6 +38,6 @@
       }
     ]
   },
-  "keyId": "d1cae52812ad1a6d",
-  "signature": "bqmRCA/P6eZ5lEpLu8bHgIhhE408fABVkMYDqNFp1xIY06LdYVg5B/5xGPkML5XZHS/bGKQOidg4lc28hg0MBw=="
+  "keyId": "0bf8d8357987f231",
+  "signature": "9TkT6uWndJlzXfxmy3p6ObeSZSir02ygMWPEshREKtdZ/X5wlheL/OWBHzNs7PcnGTLdKGE9Xa7HwT2r1AQADw=="
 }

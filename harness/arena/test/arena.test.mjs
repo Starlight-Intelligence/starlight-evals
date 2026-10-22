@@ -8,7 +8,7 @@ import path from 'node:path';
 import { CHECK, MARKER } from '../kernel/receipt.mjs';
 import { fileURLToPath } from 'node:url';
 import { ADAPTERS, priceCost } from '../adapters.mjs';
-import { OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, receiptRefusals, redactCredentials, shareOf, toTeamRun } from '../lib.mjs';
+import { OUT_OF_CREDIT, aggregate, findCredentials, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, receiptRefusals, redactCredentials, settledUsage, shareOf, toTeamRun } from '../lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const config = JSON.parse(readFileSync(path.join(HERE, '..', 'arena.config.json'), 'utf8'));
@@ -64,15 +64,17 @@ test('caps ship empty, so every paid run is refused with the reasons named', () 
 
 test('with caps, a pre-registered contract, a key and a container, a run is admitted', () => {
   const pre = config.contract.preregistrations[0].sha256;
-  // Share = (9 - 3 x 0.5) / 3 = 2.5 per contestant; every key carries a provider-enforced limit inside it.
-  const hc = (limitUsd) => ({ mechanism: 'provider key spend limit', limitUsd });
+  // Share = (9 - 3 x 0.5) / 3 = 2.5 per contestant; every key carries an enforcing limit inside min(perRunUsd, share).
+  const hc = (limitUsd, mechanism = 'openrouter-key-limit') => ({ mechanism, limitUsd });
   const set = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, kernel: { ...config.kernel, graderHardCap: hc(0.5) }, contestants: config.contestants.map((c) => ({ ...c, hardCap: hc(1) })) };
   const byIdSet = (id) => set.contestants.find((c) => c.id === id);
-  const base = { env: { ANTHROPIC_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3, runtime: 'container' };
-  assert.deepEqual(paidRunRefusals(set, byIdSet('claude-code'), base), []);
-  assert.ok(paidRunRefusals(set, byId('claude-code'), base).some((x) => x.includes('hardCap')), 'no provider-enforced limit, no paid run');
-  assert.ok(paidRunRefusals(set, { ...byIdSet('claude-code'), hardCap: hc(1.5) }, base).some((x) => x.includes('hardCap')), 'a key limit above the per-run cap is refused, even inside the share');
-  assert.ok(paidRunRefusals({ ...set, kernel: config.kernel }, byIdSet('claude-code'), base).some((x) => x.includes('graderHardCap')));
+  const base = { env: { OPENROUTER_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3, runtime: 'container' };
+  assert.deepEqual(paidRunRefusals(set, byIdSet('opencode-omo'), base), []);
+  assert.ok(paidRunRefusals(set, byId('opencode-omo'), base).some((x) => x.includes('hardCap')), 'no enforcing limit, no paid run');
+  assert.ok(paidRunRefusals(set, { ...byIdSet('opencode-omo'), hardCap: hc(1.5) }, base).some((x) => x.includes('hardCap')), 'a key limit above the per-run cap is refused, even inside the share');
+  assert.ok(paidRunRefusals(set, { ...byIdSet('opencode-omo'), hardCap: hc(1, 'openai-project-budget') }, base).some((x) => x.includes('enforcing limit')), 'a budget that only alerts is not a limit');
+  assert.ok(paidRunRefusals(set, byIdSet('claude-code'), { ...base, env: { ANTHROPIC_API_KEY: 'x' } }).some((x) => x.includes('does not run on an OpenRouter key')), 'a declared OpenRouter limit must be on the key the contestant actually uses');
+  assert.ok(paidRunRefusals({ ...set, kernel: config.kernel }, byIdSet('opencode-omo'), base).some((x) => x.includes('graderHardCap')));
   assert.equal(shareOf(set, 3), 2.5);
   assert.ok(paidRunRefusals(set, byId('claude-code'), { ...base, runtime: 'local' }).some((x) => x.includes('credential boundary')), 'a paid host run is refused');
   assert.ok(paidRunRefusals({ ...set, caps: { ...set.caps, perReceiptUsd: null } }, byId('claude-code'), base).some((x) => x.includes('perReceiptUsd')));
@@ -82,7 +84,26 @@ test('with caps, a pre-registered contract, a key and a container, a run is admi
   const codex = { ...base, env: { OPENAI_API_KEY: 'x' } };
   assert.ok(paidRunRefusals(set, byId('codex'), codex).some((x) => x.includes('no valid price row')));
   assert.ok(paidRunRefusals({ ...set, pricing: { models: { 'gpt-6-astra': {} } } }, byId('codex'), codex).some((x) => x.includes('no valid price row')), 'an empty price row is not a price');
-  assert.deepEqual(paidRunRefusals({ ...set, pricing: { models: { 'gpt-6-astra': { inputPerMTok: 1, outputPerMTok: 8 } } } }, byIdSet('codex'), codex), []);
+  assert.ok(!paidRunRefusals({ ...set, pricing: { models: { 'gpt-6-astra': { inputPerMTok: 1, outputPerMTok: 8 } } } }, byIdSet('codex'), codex).some((x) => x.includes('price row')), 'a full price row is a price');
+});
+
+test('provider accounting: settled counters, non-resetting limits, blocked rows counted, leaks found', async () => {
+  const seq = (vals) => { let i = 0; return async () => vals[Math.min(i++, vals.length - 1)]; };
+  const fast = { intervalMs: 1, maxMs: 10, sleep: async () => {} };
+  assert.equal(await settledUsage(seq([1.0, 1.2, 1.2]), fast), 1.2, 'settled once two reads agree');
+  assert.equal(await settledUsage(seq([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]), fast), null, 'never settles, stays unknown');
+  assert.equal(await settledUsage(seq([1.0, null]), fast), null, 'a failed read is unknown');
+  const pre = await openrouterPreflight('k', async () => ({ status: 200, ok: true, json: async () => ({ data: { limit: 1, limit_reset: 'daily', usage: 0.2 } }) }));
+  assert.equal(pre.limitReset, 'daily');
+  const done = { pass: true, finished: 'done', scores: GOOD, toolCalls: 0, wallMs: 0, costUsd: 0, tokens: { input: 0, output: 0 } };
+  const a = aggregate([done, { ...done, pass: false, finished: 'blocked' }]);
+  assert.deepEqual([a.passes, a.graded, a.passRate], [1, 2, 0.5], 'a run stopped by a 402 is a failed attempt, not a missing one');
+  const dir = mkdtempSync(path.join(tmpdir(), 'arena-leak-'));
+  try {
+    const fake = ['not', 'a', 'real', 'credential'].join('-') + 'y'.repeat(12);
+    writeFileSync(path.join(dir, 'notes.txt'), `handoff: ${fake}`);
+    assert.deepEqual(findCredentials(dir, { OPENROUTER_API_KEY: fake }, ['OPENROUTER_API_KEY']), ['notes.txt: OPENROUTER_API_KEY']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('incomplete usage is unknown cost, never zero', () => {
@@ -101,7 +122,7 @@ test('incomplete usage is unknown cost, never zero', () => {
 
 test('receipts: same contract, pre-registration and grader hard cap rules as runs', () => {
   const pre = config.contract.preregistrations[0].sha256;
-  const ok = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, contract: { ...config.contract, sha256: pre }, kernel: { ...config.kernel, graderHardCap: { mechanism: 'key limit', limitUsd: 0.5 } } };
+  const ok = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, contract: { ...config.contract, sha256: pre }, kernel: { ...config.kernel, graderHardCap: { mechanism: 'openrouter-key-limit', limitUsd: 0.5 } } };
   assert.deepEqual(receiptRefusals(ok, { contractSha: pre }), []);
   assert.ok(receiptRefusals({ ...ok, caps: { ...ok.caps, perRunUsd: null } }, { contractSha: pre }).some((r) => r.includes('perRunUsd')), 'collection cannot grade with a null run cap');
   assert.ok(receiptRefusals(config, { contractSha: config.contract.sha256 }).some((r) => r.includes('pre-registration')), 'the shipped 0.2.0 contract gets no paid receipt');
