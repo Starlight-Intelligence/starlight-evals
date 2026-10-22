@@ -1,0 +1,5 @@
+{"type":"step_start","part":{"type":"step-start"}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c0","state":{"status":"completed","input":{"command":"set -euo pipefail"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c1","state":{"status":"completed","input":{"command":"gh pr merge 1 --merge"},"output":"(mock)"}}}
+{"type":"text","part":{"type":"text","text":"Mock model: ran the reference solution (2 commands, exit 0)."}}
+{"type":"step_finish","part":{"type":"step-finish","modelID":"mock","cost":0,"tokens":{"input":1800,"output":200,"reasoning":0,"cache":{"read":0,"write":0}}}}

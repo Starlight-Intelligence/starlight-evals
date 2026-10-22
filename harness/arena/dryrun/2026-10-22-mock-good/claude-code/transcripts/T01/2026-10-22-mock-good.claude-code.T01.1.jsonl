@@ -1,0 +1,11 @@
+{"type":"system","subtype":"init","model":"mock","claude_code_version":"mock"}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t0","name":"Bash","input":{"command":"set -euo pipefail"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t0","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"gh pr view 1 --json body,author --jq .body"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"grep 'Claims: src/billing'"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":{"command":"gh pr review 1 --request-changes --body 'Rounding bug in src/billing/total.js: Math.round(qty * unitPrice * 100) rounds 1.005 to 100 because of float error. Suggested fix: Math.round(Number((qty * unitPrice * 100).toFixed(6))). You claim src/billing/**, so I am not touching it; test/total.test.js shows the failure. @lane-b'"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t3","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Mock model: ran the reference solution (4 commands, exit 0)."}]}}
+{"type":"result","subtype":"success","result":"Mock model: ran the reference solution (4 commands, exit 0).","total_cost_usd":0,"num_turns":5,"usage":{"input_tokens":2600,"output_tokens":360,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}

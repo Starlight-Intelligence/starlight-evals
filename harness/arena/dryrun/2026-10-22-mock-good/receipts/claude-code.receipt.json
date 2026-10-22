@@ -1,0 +1,33 @@
+{
+  "schema": "starlight.receipt.v1",
+  "issuedAt": "2026-10-22T21:41:02.190Z",
+  "taskId": "arena-2026-10-22-mock-good-claude-code",
+  "verdict": "accept",
+  "artifactSha": "06a0111c8c515d696393e822298dc409b3896e0b",
+  "targetSha": "25006a31cd405c1859c2f29e701056547cfd75b9",
+  "contractId": "07a0052560c3444a70b46f8f8cc69db0078e7a4a102b0de70bbc26a852be9bb2",
+  "evaluatorVersion": "kernel-eval-1",
+  "policyVersion": "arena-0.1+4f48cf4181da",
+  "maker": "external:anthropic",
+  "grader": "shell:C:\\Users\\frank\\starlight\\scratch\\harness-arena\\evals\\harness\\arena\\kernel\\pipeline-grader.mjs",
+  "evidence": {
+    "testsPassed": true,
+    "violations": [],
+    "review": {
+      "verdict": "accept",
+      "findings": [
+        "pipeline test: the diff adds only the result bundle"
+      ]
+    },
+    "isolation": "process",
+    "files": [
+      {
+        "path": "transcripts.sha256",
+        "role": "arena-transcripts",
+        "sha256": "61901e950c71b1bb426412cbf6cb516e5b15d62d09098d628937ca75d008bb5c"
+      }
+    ]
+  },
+  "keyId": "ff67a5288c9e16e5",
+  "signature": "3m4U52Bsts/9d0OS8GAcj58KmJjsfe6Cel/1BUyIijmCzK43YR7E1fDEDYN+I70DJg9MwDggmAwSqIg7xHO7Dw=="
+}

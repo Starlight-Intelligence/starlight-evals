@@ -1,0 +1,33 @@
+{
+  "schema": "starlight.receipt.v1",
+  "issuedAt": "2026-10-22T21:41:04.710Z",
+  "taskId": "arena-2026-10-22-mock-good-codex",
+  "verdict": "accept",
+  "artifactSha": "d2896ed4a39f1a602f2bf3121eb8e59e0f335041",
+  "targetSha": "7685a6eed34cabab377a00cce24eca8d33d6fafe",
+  "contractId": "b5f30bb2ad65dbed98707d4aae960c5465bc43f1745cd88fac4af794af829c7a",
+  "evaluatorVersion": "kernel-eval-1",
+  "policyVersion": "arena-0.1+4f48cf4181da",
+  "maker": "external:openai",
+  "grader": "shell:C:\\Users\\frank\\starlight\\scratch\\harness-arena\\evals\\harness\\arena\\kernel\\pipeline-grader.mjs",
+  "evidence": {
+    "testsPassed": true,
+    "violations": [],
+    "review": {
+      "verdict": "accept",
+      "findings": [
+        "pipeline test: the diff adds only the result bundle"
+      ]
+    },
+    "isolation": "process",
+    "files": [
+      {
+        "path": "transcripts.sha256",
+        "role": "arena-transcripts",
+        "sha256": "043daecb48077c95047ec3a9e7789b70c24c4120776ef18f9e750ea1001c568a"
+      }
+    ]
+  },
+  "keyId": "ff67a5288c9e16e5",
+  "signature": "eNTXHSrDeLajYrgaCt3Nz+sfVRJavXADoezMdz9y0L2sGZgh8n+H6ZmO/rt31GxPPMuDXp5u1drGBeQVwXQ2AQ=="
+}
