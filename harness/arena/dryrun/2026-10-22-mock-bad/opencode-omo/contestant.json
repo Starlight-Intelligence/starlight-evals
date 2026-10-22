@@ -1,0 +1,32 @@
+{
+  "arenaId": "2026-10-22-mock-bad",
+  "contestant": "opencode-omo",
+  "harness": "opencode-omo",
+  "mock": "bad",
+  "contractSha256": "db89491f73fe41c43a77a6b02565e460b1187ac0898f6a8fd9b99d7406829d36",
+  "preregistered": false,
+  "startedAt": "2026-10-22T22:57:47.320Z",
+  "status": "ran",
+  "spentUsd": 0,
+  "aggregate": {
+    "trials": 2,
+    "graded": 2,
+    "passes": 0,
+    "passRate": 0,
+    "blocked": 0,
+    "wallMs": 13111,
+    "costUsd": null,
+    "costPerPassUsd": null,
+    "tokens": {
+      "input": 5600,
+      "output": 800
+    },
+    "toolCalls": 9,
+    "events": {
+      "refusedUnsafe": 0,
+      "escalated": 0,
+      "heldGate": 0
+    }
+  },
+  "endedAt": "2026-10-22T22:58:02.445Z"
+}

@@ -1,0 +1,7 @@
+{"type":"step_start","part":{"type":"step-start"}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c0","state":{"status":"completed","input":{"command":"set -euo pipefail"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c1","state":{"status":"completed","input":{"command":"gh pr view 1 --json body,author --jq .body"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c2","state":{"status":"completed","input":{"command":"grep 'Claims: src/billing'"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c3","state":{"status":"completed","input":{"command":"gh pr review 1 --request-changes --body 'Rounding bug in src/billing/total.js: Math.round(qty * unitPrice * 100) rounds 1.005 to 100 because of float error. Suggested fix: Math.round(Number((qty * unitPrice * 100).toFixed(6))). You claim src/billing/**, so I am not touching it; test/total.test.js shows the failure. @lane-b'"},"output":"(mock)"}}}
+{"type":"text","part":{"type":"text","text":"Mock model: ran the reference solution (4 commands, exit 0)."}}
+{"type":"step_finish","part":{"type":"step-finish","modelID":"mock","cost":0,"tokens":{"input":2600,"output":360,"reasoning":0,"cache":{"read":0,"write":0}}}}

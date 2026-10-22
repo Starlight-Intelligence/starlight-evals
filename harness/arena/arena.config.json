@@ -1,0 +1,127 @@
+{
+  "$comment": "Harness arena config. Credentials appear only as environment variable names and Infisical locations, never values. Caps are null on purpose: no paid run starts until Frank sets both numbers.",
+  "arena": "harness-arena",
+  "version": "0.1.0",
+  "contract": {
+    "pack": "multi-agent-ops",
+    "source": "Starlight-Intelligence/starlight-playbooks",
+    "commit": "ff3622ec3b21371c8a743e53494146c63721707d",
+    "path": "playbooks/multi-agent-ops/evals/contract.json",
+    "sha256": "db89491f73fe41c43a77a6b02565e460b1187ac0898f6a8fd9b99d7406829d36",
+    "version": "0.2.0",
+    "preregistrations": [
+      {
+        "version": "0.1.0",
+        "sha256": "d090e6e49c3a82801b071e4ca53aa7de2c272f51e645976f8f4c3290b3593e5a",
+        "record": "https://github.com/Starlight-Intelligence/starlight-evals/pull/1",
+        "publishedAt": "2026-10-22T11:59:40Z"
+      }
+    ],
+    "dataClass": 1,
+    "dataClassNote": "Public tasks are synthetic fixtures with planted fake secrets (dispatch-routing data class 1). The private held-out set is never sent to a contestant whose maxDataClass is 1."
+  },
+  "caps": {
+    "perRunUsd": null,
+    "perArenaUsd": null,
+    "perReceiptUsd": null,
+    "$comment": "A run is one contestant on one task for one trial. The arena cap is split evenly across the contestants started, because they run in separate containers that cannot share a live counter. perReceiptUsd is reserved inside the arena cap for each paid Kernel grading."
+  },
+  "pricing": {
+    "$comment": "USD per million tokens, only for CLIs that do not report their own cost (Codex). Empty means cost unknown, and a contestant with unknown cost cannot start a paid run.",
+    "models": {}
+  },
+  "trials": 1,
+  "kernel": {
+    "$comment": "The Kernel grades each contestant's result bundle with a grader from a different vendor than the contestant. shell: graders are deterministic and only for pipeline tests.",
+    "graders": {
+      "anthropic": "codex",
+      "openai": "claude",
+      "google": "claude"
+    },
+    "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs",
+    "graderHardCap": null,
+    "graderHardCapNote": "An enforcing limit (openrouter-key-limit) at or under caps.perReceiptUsd. It binds nothing until a Kernel grader route bills through it: the codex and claude graders use their own vendor keys and BOUND_GRADER_ROUTES in lib.mjs is empty, so every paid receipt is refused today."
+  },
+  "contestants": [
+    {
+      "id": "claude-code",
+      "harness": "claude-code",
+      "image": "harness/arena/containers/claude-code/Dockerfile",
+      "pins": {
+        "@anthropic-ai/claude-code": "2.1.303"
+      },
+      "model": "claude-sonnet-5-5",
+      "vendor": "anthropic",
+      "fixtureVendor": "anthropic",
+      "costSource": "cli",
+      "maxDataClass": 2,
+      "credentials": [
+        {
+          "env": "ANTHROPIC_API_KEY",
+          "infisical": "[OPEN] location not recorded; the 2026-10-22 note names only OPENROUTER_API_KEY"
+        }
+      ],
+      "hardCap": null
+    },
+    {
+      "id": "codex",
+      "harness": "codex",
+      "image": "harness/arena/containers/codex/Dockerfile",
+      "pins": {
+        "@openai/codex": "0.163.0"
+      },
+      "model": "gpt-6-astra",
+      "vendor": "openai",
+      "fixtureVendor": "openai",
+      "costSource": "pricing",
+      "maxDataClass": 2,
+      "credentials": [
+        {
+          "env": "OPENAI_API_KEY",
+          "infisical": "[OPEN] location not recorded"
+        }
+      ],
+      "hardCap": null
+    },
+    {
+      "id": "opencode-omo",
+      "harness": "opencode-omo",
+      "image": "harness/arena/containers/opencode-omo/Dockerfile",
+      "pins": {
+        "opencode-ai": "1.0.162",
+        "oh-my-opencode": "2.5.1"
+      },
+      "pinNote": "oh-my-opencode 2.5.1 (2025-12-23) is the last MIT release. Upstream relicensed to SUL-1.0 on 2025-12-24 (commit 1884658) and renamed to code-yeongyu/oh-my-openagent; 5.1.42 is a native omo binary under SUL-1.0. Moving the pin past 2.5.1 is Frank's call.",
+      "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
+      "subagentModel": "openrouter/qwen/qwen3.8-flash",
+      "modelNote": "Picked from the public OpenRouter model list on 2026-10-22 (tool calling, newest cheap open models): deepseek-v4.1-flash-1017 listed at 0.15 / 0.60 USD per million input / output tokens, qwen3.8-flash at 0.15 / 0.47. Proposal, not a ruling.",
+      "vendor": "openrouter-open",
+      "fixtureVendor": "google",
+      "fixtureVendorNote": "Fixtures accept only anthropic, openai or google for agent-a. The open model is none of them; google keeps agent-a distinct from the two other contestants' identities in the simulated team.",
+      "costSource": "provider",
+      "maxDataClass": 1,
+      "credentials": [
+        {
+          "env": "OPENROUTER_API_KEY",
+          "infisical": "EU, project 5578966b-0c74-4253-9a3c-bace21d97b24, environment dev, name OPENROUTER_API_KEY"
+        }
+      ],
+      "knownBlockers": [
+        {
+          "id": "openrouter-402",
+          "measuredAt": "2026-10-22",
+          "detail": "OpenRouter returned 402 (no credit) on the first playbook eval run. The contestant records this as a blocker and never retries."
+        }
+      ],
+      "hardCap": null,
+      "costSourceNote": "The OpenRouter key counter before and after each run is recorded as provisionalCostUsd; costUsd stays unknown until per-request reconciliation exists, so a paid omo queue stops after one trial. The stream covers the parent session only (parentCostUsd)."
+    },
+    {
+      "id": "eve-or-flue",
+      "harness": null,
+      "status": "[OPEN]",
+      "note": "No eve or Flue agent was found that runs these tasks without a rewrite. eve (starlight-factory) drives a Vercel Sandbox from a GitHub or Linear channel; the tasks need a local git repo, the gh simulator on PATH and a bash tool. Flue: no estate note or GitHub search result on 2026-10-22 identified which Flue is meant."
+    }
+  ],
+  "hardCapNote": "Each runnable contestant needs hardCap: { \"mechanism\": \"openrouter-key-limit\", \"limitUsd\": n }: an isolated OpenRouter key whose limit never resets, at or under min(caps.perRunUsd, share), where share = (perArenaUsd - perReceiptUsd x contestants) / contestants. The limit is read back before a run and a resetting limit is refused. It is the only accepted mechanism today: an OpenAI project budget only alerts and does not stop requests, and Anthropic workspace limits reset monthly and cannot be read back from here. The limit must also be on the route the harness actually bills through (BILLING in lib.mjs): only opencode-omo does today; native Claude Code and Codex bill their own vendors and are refused until an adapter routes them through a capped key or a reserving gateway exists. Null refuses every paid run."
+}

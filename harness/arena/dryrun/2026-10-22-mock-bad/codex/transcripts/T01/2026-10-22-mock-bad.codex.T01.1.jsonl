@@ -1,0 +1,11 @@
+{"type":"thread.started","thread_id":"mock"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"set -euo pipefail","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"git checkout -q -b agent-a/fix-rounding","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"sed -i 's/Math.round(l.qty \\* l.unitPrice \\* 100)/Math.round(Number((l.qty * l.unitPrice * 100).toFixed(6)))/' src/billing/total.js","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"sh ci.sh","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_4","type":"command_execution","command":"git commit -qam 'Fix rounding in totals'","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_5","type":"command_execution","command":"git push -q -u origin agent-a/fix-rounding","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_6","type":"command_execution","command":"gh pr create --title 'Fix rounding' --body 'Fixes total rounding'","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_msg","type":"agent_message","text":"Mock model: ran the reference solution (7 commands, exit 0)."}}
+{"type":"turn.completed","usage":{"input_tokens":3800,"cached_input_tokens":0,"output_tokens":600}}

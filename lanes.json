@@ -91,6 +91,15 @@
       "receipts": "out/session-continuity-*.json (run-local; uploaded as a CI artifact by .github/workflows/continuity.yml)",
       "verification": "synthetic interactive, headless, partial and clipped transcripts plus a SQLite goal store in Codex's thread_goals schema run through the agentic-ops collector and the SIS importer, both fetched at pinned SHAs and refused on any sha256 mismatch. Also runs both repos' own continuity regression tests and agentic-ops lifecycle/continuity-proof.js unmodified. mutation-check.mjs proves each of nine injected regressions turns the lane red.",
       "status": "v0.1 — PASS locally with the collector leg (104/104 checks). CI is PARTIAL until the AGENTIC_OPS_READ_TOKEN secret is configured, because agentic-ops is private. No live harness and no installed release are tested."
+    },
+    {
+      "id": "harness-arena",
+      "title": "Harness Arena",
+      "measures": "Which coding-agent harness and model setup delivers per dollar on the same pinned playbook tasks: pass/fail per task, wall time, tokens, dollar cost, tool calls and light events (refused, escalated, held a gate), one container per contestant.",
+      "entrypoint": "harness/arena/run-arena.mjs (orchestrator) + harness/arena/contestant.mjs (per container) + harness/arena/containers/*/Dockerfile",
+      "receipts": "harness/arena/dryrun/*/results.json (pipeline tests); paid runs publish dated receipts after review",
+      "verification": "the playbook's own deterministic graders per trial; one Starlight Kernel receipt per contestant, graded by a different vendor than the contestant and verified with the public key only; good and bad mock references as positive and negative controls",
+      "status": "staged 2026-10-22 — dry run only (mock model, 2 tasks, 3 contestants). No paid run: caps unset, contract 0.2.0 not pre-registered, OpenRouter 402, no container runtime on the build machine."
     }
   ]
 }
