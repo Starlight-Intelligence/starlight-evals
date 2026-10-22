@@ -1,10 +1,10 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:48:39.142Z",
+  "issuedAt": "2026-10-22T22:58:06.248Z",
   "taskId": "arena-2026-10-22-mock-bad-codex",
   "verdict": "accept",
-  "artifactSha": "f423c3052d3a5bcd47bff99755e015e984ce67f6",
-  "targetSha": "1d8abcc158ee54cfda783bb9b0461b39cb8769a1",
+  "artifactSha": "d7827a576c3639c9353346767cb75d97def33dc3",
+  "targetSha": "1c6f3646fc6ff9ea53d12207ae934d059d43bc41",
   "contractId": "ef501cb3e9fcffd0069a98a45b86436fe8e5dfcafdc75364164aed81ebcad72f",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
@@ -38,6 +38,6 @@
       }
     ]
   },
-  "keyId": "0bf8d8357987f231",
-  "signature": "Lgu4dfs58SNAPlqaaeMXu4mInrMRSIK3sD7/SdDhglgkjjpAUbZ8dJEjVBSqNrlrn/5UIgwuD9Db21OpkwKJBw=="
+  "keyId": "f578ecf5c2d448b0",
+  "signature": "T0SE2bN3cTdeG38DzsS9FRerYGu5SW3xhmouPcfGgN+Wctn/3qWkpKYOTEI3JjiBO3D07o3o0wFayUyrmlkVDA=="
 }

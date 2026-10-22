@@ -50,6 +50,11 @@ export function keyCeiling(config, contestantsStarted) {
 // can be read back before a run. A project "budget" that only alerts (OpenAI's) is not one. Today
 // that is an OpenRouter key with a non-resetting limit; a reserving gateway would be the other.
 export const ENFORCING_MECHANISMS = ['openrouter-key-limit'];
+// Which harness adapters bill only through the credential a mechanism caps. Claude Code and Codex
+// call their own vendors, so an OpenRouter limit next to them caps nothing they spend.
+export const BILLING = { 'opencode-omo': 'openrouter-key-limit' };
+// Kernel grader routes known to bill through an enforcing limit: none yet.
+export const BOUND_GRADER_ROUTES = [];
 const hardCapOk = (hc, ceiling) => !!hc && ENFORCING_MECHANISMS.includes(hc.mechanism) && isNum(hc.limitUsd) && ceiling !== null && hc.limitUsd <= ceiling;
 
 /** Every reason a paid Kernel grading may not start. Empty means admitted. */
@@ -62,7 +67,12 @@ export function receiptRefusals(config, { contractSha }) {
   if (!isNum(per)) out.push('caps.perReceiptUsd is not set: the Kernel grader is a paid model call too');
   if (contractSha !== config.contract.sha256) out.push(`collected contract ${String(contractSha).slice(0, 12)} is not the pinned ${config.contract.sha256.slice(0, 12)}`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${String(contractSha).slice(0, 12)} has no public pre-registration`);
-  if (!hardCapOk(config.kernel?.graderHardCap, isNum(per) ? per : null)) out.push(`kernel.graderHardCap must be an enforcing limit (${ENFORCING_MECHANISMS.join(', ')}) at or under caps.perReceiptUsd; the Kernel's Codex and Claude graders use their own vendor keys, so no paid receipt is admitted until a grader runs behind one`);
+  if (!hardCapOk(config.kernel?.graderHardCap, isNum(per) ? per : null)) out.push(`kernel.graderHardCap must be an enforcing limit (${ENFORCING_MECHANISMS.join(', ')}) at or under caps.perReceiptUsd`);
+  // A declared limit binds nothing unless the grader actually bills through it. The Kernel's graders
+  // (codex, claude) call their vendors with their own keys, and no adapter routes them through a
+  // capped key yet, so every paid receipt is refused until one is built and verified.
+  const unbound = [...new Set(Object.values(config.kernel?.graders ?? {}).filter((g) => !BOUND_GRADER_ROUTES.includes(g)))];
+  if (unbound.length) out.push(`grader-unbound: no Kernel grader bills through an enforcing limit yet (${unbound.join(', ')} use their own vendor keys)`);
   return out;
 }
 
@@ -84,7 +94,7 @@ export function paidRunRefusals(config, contestant, { env, contractSha, contesta
   // The provider's limit is the real per-run bound, so it must fit the per-run cap as well as the share.
   const ceiling = keyCeiling(config, contestantsStarted);
   if (!hardCapOk(contestant.hardCap, ceiling)) out.push(`${contestant.id}.hardCap must be an enforcing limit (${ENFORCING_MECHANISMS.join(', ')}) at or under min(caps.perRunUsd, share) = ${ceiling ?? 'unset'}`);
-  if (contestant.hardCap?.mechanism === 'openrouter-key-limit' && !(contestant.credentials ?? []).some((c) => c.env === 'OPENROUTER_API_KEY')) out.push(`${contestant.id} declares an OpenRouter key limit but does not run on an OpenRouter key`);
+  if (contestant.hardCap && BILLING[contestant.harness] !== contestant.hardCap.mechanism) out.push(`${contestant.id} (${contestant.harness}) does not bill through ${contestant.hardCap.mechanism}; its spend would not be capped by it`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${contractSha.slice(0, 12)} has no public pre-registration`);
   if (contestant.costSource === 'pricing' && !validRates(config.pricing?.models?.[contestant.model])) out.push(`no valid price row for ${contestant.model} (finite inputPerMTok and outputPerMTok), so its cost cannot be capped`);
   // A paid contestant run implies a paid receipt later, so the grader's limits are checked up front.

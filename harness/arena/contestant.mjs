@@ -224,15 +224,14 @@ for (const task of tasks) {
       const wallMs = Date.now() - t0;
       parsed = adapter.parse(run.out);
       costUsd = costOf(parsed);
-      if (contestant.costSource === 'provider') {
-        if (mock) costUsd = parsed.parentCostUsd ?? null;
-        else {
-          // The counter trails the last request; it counts only once two reads agree. A total below
-          // what the parent session alone reported is not settled either.
-          const usageAfter = await settledUsage(() => openrouterKeyUsage(providerKey));
-          const delta = usageAfter !== null && usageAfter >= usageBefore ? usageAfter - usageBefore : null;
-          costUsd = delta !== null && (parsed.parentCostUsd ?? 0) <= delta + 1e-9 ? delta : null;
-        }
+      // A provider counter that has stopped moving is not proof every charge is final (a subagent's can
+      // land later), so its reading is recorded as provisional and the cost stays unknown. Unknown cost
+      // stops this contestant's paid queue below. Final per-request reconciliation is not built.
+      let provisionalCostUsd;
+      if (contestant.costSource === 'provider' && !mock) {
+        const usageAfter = await settledUsage(() => openrouterKeyUsage(providerKey));
+        provisionalCostUsd = usageAfter !== null && usageAfter >= usageBefore ? usageAfter - usageBefore : null;
+        costUsd = null;
       }
       // Spend is settled before grading, so a grader failure can never drop a charge.
       spent = spent === null || (costUsd === null && !mock) ? null : spent + (costUsd ?? 0);
@@ -255,7 +254,7 @@ for (const task of tasks) {
         model: mock ? 'mock' : (parsed.model ?? contestant.model), vendor: contestant.vendor, fixtureVendor: contestant.fixtureVendor, pack: config.contract.pack, contractSha256: contractSha,
         task: task.id, kind: task.kind, primaryMetric: task.primaryMetric, trial, mock,
         startedAt, endedAt: new Date().toISOString(), wallMs, finished: run.finished, exitCode: run.code,
-        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, ...(parsed.parentCostUsd !== undefined ? { parentCostUsd: parsed.parentCostUsd } : {}), toolCalls: parsed.toolCalls, tools: parsed.tools,
+        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, ...(parsed.parentCostUsd !== undefined ? { parentCostUsd: parsed.parentCostUsd } : {}), ...(provisionalCostUsd !== undefined ? { provisionalCostUsd } : {}), toolCalls: parsed.toolCalls, tools: parsed.tools,
         scores, taskDeterministic: grade.taskDeterministic, tampered: grade.tampered,
         llm: llmGraded ? { verdict: null, note: grade.llm.note, evidence: grade.llm.evidence } : null,
         // One rule everywhere: a run that did not finish normally is not a pass, whatever the sandbox shows.
@@ -272,7 +271,9 @@ for (const task of tasks) {
     // credit. Neither is retried.
     if (!mock && run) {
       if (run.finished === 'blocked') stop = { id: 'provider-out-of-credit', detail: 'the provider reported no credit (402 or equivalent) during a run; not retried' };
-      else if (costUsd === null) stop = { id: 'cost-unknown', detail: `${trialId} spent an unknown amount, so the cap can no longer be enforced` };
+      else if (costUsd === null) stop = contestant.costSource === 'provider'
+        ? { id: 'cost-not-final', detail: `${trialId}'s provider charges are provisional until reconciled per request, so no further paid trial starts` }
+        : { id: 'cost-unknown', detail: `${trialId} spent an unknown amount, so the cap can no longer be enforced` };
     }
     if (!flag('keep')) for (const p of [sb, `${sb}.sim`]) rmSync(p, { recursive: true, force: true, maxRetries: 3 });
     // The whole row is redacted, not just the transcript: grader evidence (handoff notes, PR bodies)

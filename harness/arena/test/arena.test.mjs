@@ -73,7 +73,9 @@ test('with caps, a pre-registered contract, a key and a container, a run is admi
   assert.ok(paidRunRefusals(set, byId('opencode-omo'), base).some((x) => x.includes('hardCap')), 'no enforcing limit, no paid run');
   assert.ok(paidRunRefusals(set, { ...byIdSet('opencode-omo'), hardCap: hc(1.5) }, base).some((x) => x.includes('hardCap')), 'a key limit above the per-run cap is refused, even inside the share');
   assert.ok(paidRunRefusals(set, { ...byIdSet('opencode-omo'), hardCap: hc(1, 'openai-project-budget') }, base).some((x) => x.includes('enforcing limit')), 'a budget that only alerts is not a limit');
-  assert.ok(paidRunRefusals(set, byIdSet('claude-code'), { ...base, env: { ANTHROPIC_API_KEY: 'x' } }).some((x) => x.includes('does not run on an OpenRouter key')), 'a declared OpenRouter limit must be on the key the contestant actually uses');
+  const claudeBoth = { ...byIdSet('claude-code'), credentials: [...byIdSet('claude-code').credentials, { env: 'OPENROUTER_API_KEY' }] };
+  assert.ok(paidRunRefusals(set, claudeBoth, { ...base, env: { ANTHROPIC_API_KEY: 'x', OPENROUTER_API_KEY: 'y' } }).some((x) => x.includes('does not bill through')), 'native Claude is not capped by an OpenRouter limit, even with an OpenRouter key present');
+  assert.ok(paidRunRefusals(set, byIdSet('codex'), { ...base, env: { OPENAI_API_KEY: 'x' } }).some((x) => x.includes('does not bill through')));
   assert.ok(paidRunRefusals({ ...set, kernel: config.kernel }, byIdSet('opencode-omo'), base).some((x) => x.includes('graderHardCap')));
   assert.equal(shareOf(set, 3), 2.5);
   assert.ok(paidRunRefusals(set, byId('claude-code'), { ...base, runtime: 'local' }).some((x) => x.includes('credential boundary')), 'a paid host run is refused');
@@ -90,7 +92,8 @@ test('with caps, a pre-registered contract, a key and a container, a run is admi
 test('provider accounting: settled counters, non-resetting limits, blocked rows counted, leaks found', async () => {
   const seq = (vals) => { let i = 0; return async () => vals[Math.min(i++, vals.length - 1)]; };
   const fast = { intervalMs: 1, maxMs: 10, sleep: async () => {} };
-  assert.equal(await settledUsage(seq([1.0, 1.2, 1.2]), fast), 1.2, 'settled once two reads agree');
+  assert.equal(await settledUsage(seq([1.0, 1.2, 1.2]), fast), 1.2, 'stable once two reads agree');
+  assert.equal(await settledUsage(seq([1, 1, 1.6]), fast), 1, 'a stable reading can still miss a later charge, which is why it is only recorded as provisional');
   assert.equal(await settledUsage(seq([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]), fast), null, 'never settles, stays unknown');
   assert.equal(await settledUsage(seq([1.0, null]), fast), null, 'a failed read is unknown');
   const pre = await openrouterPreflight('k', async () => ({ status: 200, ok: true, json: async () => ({ data: { limit: 1, limit_reset: 'daily', usage: 0.2 } }) }));
@@ -123,7 +126,7 @@ test('incomplete usage is unknown cost, never zero', () => {
 test('receipts: same contract, pre-registration and grader hard cap rules as runs', () => {
   const pre = config.contract.preregistrations[0].sha256;
   const ok = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, contract: { ...config.contract, sha256: pre }, kernel: { ...config.kernel, graderHardCap: { mechanism: 'openrouter-key-limit', limitUsd: 0.5 } } };
-  assert.deepEqual(receiptRefusals(ok, { contractSha: pre }), []);
+  assert.deepEqual(receiptRefusals(ok, { contractSha: pre }).map((r) => r.split(':')[0]), ['grader-unbound'], 'with everything else in place, the only refusal is that no grader bills through the limit');
   assert.ok(receiptRefusals({ ...ok, caps: { ...ok.caps, perRunUsd: null } }, { contractSha: pre }).some((r) => r.includes('perRunUsd')), 'collection cannot grade with a null run cap');
   assert.ok(receiptRefusals(config, { contractSha: config.contract.sha256 }).some((r) => r.includes('pre-registration')), 'the shipped 0.2.0 contract gets no paid receipt');
   assert.ok(receiptRefusals(ok, { contractSha: 'f'.repeat(64) }).some((r) => r.includes('pinned')));

@@ -40,7 +40,7 @@
     },
     "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs",
     "graderHardCap": null,
-    "graderHardCapNote": "An enforcing limit (openrouter-key-limit) at or under caps.perReceiptUsd for the Kernel grader. The Kernel's Codex and Claude graders call their vendors with their own keys, so until a grader runs behind such a key every paid receipt is refused. Null refuses every paid receipt."
+    "graderHardCapNote": "An enforcing limit (openrouter-key-limit) at or under caps.perReceiptUsd. It binds nothing until a Kernel grader route bills through it: the codex and claude graders use their own vendor keys and BOUND_GRADER_ROUTES in lib.mjs is empty, so every paid receipt is refused today."
   },
   "contestants": [
     {
@@ -114,7 +114,7 @@
         }
       ],
       "hardCap": null,
-      "costSourceNote": "Total spend is the OpenRouter key usage before and after each run (subagents included); the stream cost covers the parent session only and is kept as parentCostUsd."
+      "costSourceNote": "The OpenRouter key counter before and after each run is recorded as provisionalCostUsd; costUsd stays unknown until per-request reconciliation exists, so a paid omo queue stops after one trial. The stream covers the parent session only (parentCostUsd)."
     },
     {
       "id": "eve-or-flue",
@@ -123,5 +123,5 @@
       "note": "No eve or Flue agent was found that runs these tasks without a rewrite. eve (starlight-factory) drives a Vercel Sandbox from a GitHub or Linear channel; the tasks need a local git repo, the gh simulator on PATH and a bash tool. Flue: no estate note or GitHub search result on 2026-10-22 identified which Flue is meant."
     }
   ],
-  "hardCapNote": "Each runnable contestant needs hardCap: { \"mechanism\": \"openrouter-key-limit\", \"limitUsd\": n }: an isolated OpenRouter key whose limit never resets, at or under min(caps.perRunUsd, share), where share = (perArenaUsd - perReceiptUsd x contestants) / contestants. The limit is read back before a run and a resetting limit is refused. It is the only accepted mechanism today: an OpenAI project budget only alerts and does not stop requests, and Anthropic workspace limits reset monthly and cannot be read back from here. Claude Code and Codex therefore need to run behind an OpenRouter key (or a reserving gateway, not built) before they can be paid contestants. Null refuses every paid run."
+  "hardCapNote": "Each runnable contestant needs hardCap: { \"mechanism\": \"openrouter-key-limit\", \"limitUsd\": n }: an isolated OpenRouter key whose limit never resets, at or under min(caps.perRunUsd, share), where share = (perArenaUsd - perReceiptUsd x contestants) / contestants. The limit is read back before a run and a resetting limit is refused. It is the only accepted mechanism today: an OpenAI project budget only alerts and does not stop requests, and Anthropic workspace limits reset monthly and cannot be read back from here. The limit must also be on the route the harness actually bills through (BILLING in lib.mjs): only opencode-omo does today; native Claude Code and Codex bill their own vendors and are refused until an adapter routes them through a capped key or a reserving gateway exists. Null refuses every paid run."
 }
