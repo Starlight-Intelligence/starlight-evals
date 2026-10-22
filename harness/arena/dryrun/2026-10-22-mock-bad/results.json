@@ -1,7 +1,7 @@
 {
   "schema": "arena-results.v0",
   "arenaId": "2026-10-22-mock-bad",
-  "createdAt": "2026-10-22T22:21:25.096Z",
+  "createdAt": "2026-10-22T22:36:18.400Z",
   "pipelineTest": true,
   "mock": "bad",
   "runtime": "local",
@@ -50,7 +50,7 @@
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 11274,
+        "wallMs": 11006,
         "costUsd": 0,
         "costPerPassUsd": null,
         "tokens": {
@@ -66,11 +66,11 @@
       },
       "receipt": {
         "file": "receipts/claude-code.receipt.json",
-        "id": "1cf2903f6c64f1ccf4e71fa7",
+        "id": "60c93860945ffd7db1b4e756",
         "verdict": "accept",
         "maker": "external:anthropic",
         "grader": "shell:pipeline-grader.mjs",
-        "artifactSha": "585e3ed42a4e39aa58c61b8638f8b986b3af5904",
+        "artifactSha": "413a459a616d199f207e0c4d3e3eb22b57dd68f5",
         "contractId": "dfaa8e1281d0e8aa73ba1c5551975484cc29c004400106e21d5f7037043689eb",
         "runExit": 0,
         "state": "accepted"
@@ -105,7 +105,7 @@
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 11104,
+        "wallMs": 10645,
         "costUsd": null,
         "costPerPassUsd": null,
         "tokens": {
@@ -121,11 +121,11 @@
       },
       "receipt": {
         "file": "receipts/codex.receipt.json",
-        "id": "4b3e8377df784dbfa4e525ea",
+        "id": "debcbf7b85fe18937d62f6db",
         "verdict": "accept",
         "maker": "external:openai",
         "grader": "shell:pipeline-grader.mjs",
-        "artifactSha": "749790556916f232ef299c28745a55cdf4253382",
+        "artifactSha": "6203c8c6977be83bacc9e6abe0b8d46a7a3a5e7f",
         "contractId": "b24f2aa1ed6adfbaff84c8f9b9e01bc7482e67441bd5d6160134885746aea6e4",
         "runExit": 0,
         "state": "accepted"
@@ -167,7 +167,7 @@
         "passes": 0,
         "passRate": 0,
         "blocked": 0,
-        "wallMs": 11201,
+        "wallMs": 11003,
         "costUsd": 0,
         "costPerPassUsd": null,
         "tokens": {
@@ -210,9 +210,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:12.480Z",
-      "endedAt": "2026-10-22T22:21:19.568Z",
-      "wallMs": 6609,
+      "startedAt": "2026-10-22T22:36:06.072Z",
+      "endedAt": "2026-10-22T22:36:12.510Z",
+      "wallMs": 5942,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -295,9 +295,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:19.610Z",
-      "endedAt": "2026-10-22T22:21:25.035Z",
-      "wallMs": 4665,
+      "startedAt": "2026-10-22T22:36:12.557Z",
+      "endedAt": "2026-10-22T22:36:18.339Z",
+      "wallMs": 5064,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -360,9 +360,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:12.471Z",
-      "endedAt": "2026-10-22T22:21:19.402Z",
-      "wallMs": 6427,
+      "startedAt": "2026-10-22T22:36:06.070Z",
+      "endedAt": "2026-10-22T22:36:12.373Z",
+      "wallMs": 5854,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -445,9 +445,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:19.444Z",
-      "endedAt": "2026-10-22T22:21:24.839Z",
-      "wallMs": 4677,
+      "startedAt": "2026-10-22T22:36:12.415Z",
+      "endedAt": "2026-10-22T22:36:17.892Z",
+      "wallMs": 4791,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -510,9 +510,9 @@
       "primaryMetric": "collision_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:12.520Z",
-      "endedAt": "2026-10-22T22:21:19.610Z",
-      "wallMs": 6581,
+      "startedAt": "2026-10-22T22:36:06.073Z",
+      "endedAt": "2026-10-22T22:36:12.509Z",
+      "wallMs": 5940,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -523,7 +523,8 @@
         "reasoning": 0
       },
       "costUsd": 0,
-      "costSource": "cli",
+      "costSource": "provider",
+      "parentCostUsd": 0,
       "toolCalls": 7,
       "tools": [
         {
@@ -595,9 +596,9 @@
       "primaryMetric": "bad_merge_rate",
       "trial": 1,
       "mock": "bad",
-      "startedAt": "2026-10-22T22:21:19.655Z",
-      "endedAt": "2026-10-22T22:21:25.035Z",
-      "wallMs": 4620,
+      "startedAt": "2026-10-22T22:36:12.557Z",
+      "endedAt": "2026-10-22T22:36:18.338Z",
+      "wallMs": 5063,
       "finished": "done",
       "exitCode": 0,
       "tokens": {
@@ -608,7 +609,8 @@
         "reasoning": 0
       },
       "costUsd": 0,
-      "costSource": "cli",
+      "costSource": "provider",
+      "parentCostUsd": 0,
       "toolCalls": 2,
       "tools": [
         {

@@ -98,7 +98,7 @@
       "vendor": "openrouter-open",
       "fixtureVendor": "google",
       "fixtureVendorNote": "Fixtures accept only anthropic, openai or google for agent-a. The open model is none of them; google keeps agent-a distinct from the two other contestants' identities in the simulated team.",
-      "costSource": "cli",
+      "costSource": "provider",
       "maxDataClass": 1,
       "credentials": [
         {
@@ -113,7 +113,8 @@
           "detail": "OpenRouter returned 402 (no credit) on the first playbook eval run. The contestant records this as a blocker and never retries."
         }
       ],
-      "hardCap": null
+      "hardCap": null,
+      "costSourceNote": "Total spend is the OpenRouter key usage before and after each run (subagents included); the stream cost covers the parent session only and is kept as parentCostUsd."
     },
     {
       "id": "eve-or-flue",

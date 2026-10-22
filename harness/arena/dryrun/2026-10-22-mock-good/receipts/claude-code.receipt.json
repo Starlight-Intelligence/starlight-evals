@@ -1,10 +1,10 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:21:09.083Z",
+  "issuedAt": "2026-10-22T22:36:01.704Z",
   "taskId": "arena-2026-10-22-mock-good-claude-code",
   "verdict": "accept",
-  "artifactSha": "264a7790e975ff353486209bd1cbee2b227b07e5",
-  "targetSha": "6a1ac7ac7f59386ed8b30cb18f6be2c6adb83e88",
+  "artifactSha": "1a9cddce6865a46e885e3535e8c8d2659b321d70",
+  "targetSha": "6b9a0650847dffd1592fee894d6e1050957fad3f",
   "contractId": "64183605662662b8d6bd1d147f21d97ee26d47807fb54bd7d5c3df642e9d7a66",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
@@ -38,6 +38,6 @@
       }
     ]
   },
-  "keyId": "0df4a4551ebbb13c",
-  "signature": "sF/bKjRQB1jLEATR7MI5WVybSC1nylfsYoI+La99CB/KAYPQZznMKiwSZ5FnclKPoFtjv334n0veqFGBPvHICw=="
+  "keyId": "86ce9466d50e3231",
+  "signature": "GqmvMoc4SqKO5246GTBszeS/HxqzGUQoKnv6fZO9QNyPK4og3zIulzAJ+OtGoUkjMfK8rCpOBKRsG87oCAOKBA=="
 }

@@ -74,8 +74,10 @@ export const ADAPTERS = {
         }
         if (e.type === 'item.completed' && item.type === 'agent_message' && item.text) r.finalText = item.text;
         if (e.type === 'turn.completed') {
-          completed++;
           const u = e.usage ?? {};
+          // A turn counts as accounted only when its usage carries finite, non-negative token counts.
+          const ok = ['input_tokens', 'output_tokens'].every((k) => typeof u[k] === 'number' && Number.isFinite(u[k]) && u[k] >= 0);
+          if (ok) completed++; else failed = true;
           r.tokens.input += num(u.input_tokens); r.tokens.cacheRead += num(u.cached_input_tokens); r.tokens.output += num(u.output_tokens); r.tokens.reasoning += num(u.reasoning_output_tokens);
         }
       }
@@ -122,10 +124,13 @@ export const ADAPTERS = {
         }
       }
       // Every step must finish with its own finite cost. Subagent sessions do not appear in this stream
-      // (OpenCode 1.0.162 filters events to the parent session), so this is the parent's cost only; the
-      // arena's hard-cap gate, not this number, is what bounds an omo run's spend.
-      r.usageComplete = starts > 0 && starts === finishes && costed === finishes;
-      r.costUsd = r.usageComplete ? cost : null;
+      // (OpenCode 1.0.162 filters events to the parent session), so this is the parent's cost only. It is
+      // published as parentCostUsd; the total comes from the provider's own accounting (the OpenRouter
+      // key's usage before and after the run), never from this stream.
+      r.parentUsageComplete = starts > 0 && starts === finishes && costed === finishes;
+      r.parentCostUsd = r.parentUsageComplete ? cost : null;
+      r.usageComplete = false;
+      r.costUsd = null;
       return r;
     },
   },

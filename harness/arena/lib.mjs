@@ -37,12 +37,22 @@ export function shareOf(config, contestantsStarted) {
  * whose hard spend limit is at or under this contestant's share (or, for the grader, the receipt
  * reservation). OpenRouter's limit is checked live; other providers' limits are declared by Frank.
  */
+/** The most a contestant's key may be allowed to spend: the per-run cap and the share, whichever is lower. */
+export function keyCeiling(config, contestantsStarted) {
+  const share = shareOf(config, contestantsStarted);
+  const run = readCaps(config).perRunUsd;
+  return share === null || run === null ? null : Math.min(run, share);
+}
+
 const hardCapOk = (hc, ceiling) => !!hc && typeof hc.mechanism === 'string' && hc.mechanism.length > 0 && isNum(hc.limitUsd) && ceiling !== null && hc.limitUsd <= ceiling;
 
 /** Every reason a paid Kernel grading may not start. Empty means admitted. */
 export function receiptRefusals(config, { contractSha }) {
   const out = [];
   const per = config.caps?.perReceiptUsd;
+  const caps = readCaps(config);
+  if (caps.perRunUsd === null) out.push('caps.perRunUsd is not set (Frank sets it in arena.config.json)');
+  if (caps.perArenaUsd === null) out.push('caps.perArenaUsd is not set (Frank sets it in arena.config.json)');
   if (!isNum(per)) out.push('caps.perReceiptUsd is not set: the Kernel grader is a paid model call too');
   if (contractSha !== config.contract.sha256) out.push(`collected contract ${String(contractSha).slice(0, 12)} is not the pinned ${config.contract.sha256.slice(0, 12)}`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${String(contractSha).slice(0, 12)} has no public pre-registration`);
@@ -65,7 +75,9 @@ export function paidRunRefusals(config, contestant, { env, contractSha, contesta
   if (caps.perRunUsd !== null && share !== null && caps.perRunUsd > share) {
     out.push(`caps.perRunUsd ${caps.perRunUsd} exceeds this contestant's share of the arena cap (${share})`);
   }
-  if (!hardCapOk(contestant.hardCap, share)) out.push(`${contestant.id}.hardCap must name a provider-enforced spend limit at or under this contestant's share (${share ?? 'unset'})`);
+  // The provider's limit is the real per-run bound, so it must fit the per-run cap as well as the share.
+  const ceiling = keyCeiling(config, contestantsStarted);
+  if (!hardCapOk(contestant.hardCap, ceiling)) out.push(`${contestant.id}.hardCap must name a provider-enforced spend limit at or under min(caps.perRunUsd, share) = ${ceiling ?? 'unset'}`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${contractSha.slice(0, 12)} has no public pre-registration`);
   if (contestant.costSource === 'pricing' && !validRates(config.pricing?.models?.[contestant.model])) out.push(`no valid price row for ${contestant.model} (finite inputPerMTok and outputPerMTok), so its cost cannot be capped`);
   // A paid contestant run implies a paid receipt later, so the grader's limits are checked up front.
@@ -85,7 +97,21 @@ export async function openrouterPreflight(key, fetchImpl = fetch) {
   if (!res.ok) return { ok: false, blocker: `openrouter-${res.status}`, detail: `OpenRouter key check returned ${res.status}. Not retried.` };
   const d = (await res.json())?.data ?? {};
   if (d.limit_remaining !== undefined && d.limit_remaining !== null && d.limit_remaining <= 0) return { ok: false, blocker: 'openrouter-402', detail: 'OpenRouter key has no remaining limit. Not retried.' };
-  return { ok: true, limit: typeof d.limit === 'number' ? d.limit : null };
+  return { ok: true, limit: typeof d.limit === 'number' ? d.limit : null, usage: typeof d.usage === 'number' ? d.usage : null };
+}
+
+/**
+ * The provider's own running total for a key (OpenRouter: dollars used). The difference before and
+ * after a run is that run's full spend, subagents included, which no CLI stream reports. null when
+ * it cannot be read: unknown, never zero.
+ */
+export async function openrouterKeyUsage(key, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl('https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${key}` } });
+    if (!res.ok) return null;
+    const u = (await res.json())?.data?.usage;
+    return typeof u === 'number' && Number.isFinite(u) && u >= 0 ? u : null;
+  } catch { return null; }
 }
 
 /** A trial passes only when every playbook metric is at its good value. An ungraded LLM task is null, not a fail. */
@@ -171,7 +197,7 @@ export function toTeamRun(t, { receiptId } = {}) {
     toolCalls: (t.tools ?? []).map((x) => ({ 'gen_ai.tool.name': x.name || 'tool', ...(x.id ? { 'gen_ai.tool.call.id': String(x.id) } : {}), 'gen_ai.tool.type': 'function' })),
     cost: mock || t.costUsd === null || t.costUsd === undefined
       ? { usd: null, basis: 'unknown' }
-      : { usd: t.costUsd, basis: t.costSource === 'cli' ? 'cli-reported' : 'estimate' },
+      : { usd: t.costUsd, basis: { cli: 'cli-reported', pricing: 'estimate', provider: 'gateway' }[t.costSource] ?? 'unknown' },
     outcome: t.pass === null || t.pass === undefined || !evidence ? null : { goalId: SLUG(`${t.pack}-${t.task}`), delta: t.pass ? 1 : 0, evidence },
     lightEvents: Object.entries(LIGHT_KIND).filter(([k]) => t.events?.[k]).map(([k, kind]) => ({ kind, summary: `${kind} on ${t.task}, read by arena heuristic-v0 from the agent's commands and final message`, ...(evidence ? { evidence } : {}) })),
   };

@@ -146,7 +146,9 @@ const readStatus = (dir) => (existsSync(path.join(dir, 'contestant.json')) ? JSO
 function finishLlm(row) {
   if (!row.llm) return row;
   const reason = mock ? 'not graded: pipeline test' : 'not graded: the LLM grader step needs caps and an OpenRouter key on the orchestrator ([OPEN], not wired in v0.1)';
-  return { ...row, llm: { ...row.llm, verdict: null, reason }, pass: passOf(row.scores, { llmGraded: true, llmVerdict: null }) };
+  // The one outcome rule: a run that did not finish normally stays a fail; only a completed run
+  // waits for its verdict as null.
+  return { ...row, llm: { ...row.llm, verdict: null, reason }, pass: row.finished === 'done' ? passOf(row.scores, { llmGraded: true, llmVerdict: null }) : false };
 }
 
 function manifest(dir) {

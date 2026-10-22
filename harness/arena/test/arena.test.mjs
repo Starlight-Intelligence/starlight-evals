@@ -33,9 +33,11 @@ for (const h of ['claude-code', 'codex', 'opencode-omo']) {
   });
 }
 
-test('cost: Claude and OpenCode report their own; Codex has none until a price row exists', () => {
+test('cost: Claude reports its own; OpenCode only its parent session; Codex none until a price row exists', () => {
   assert.equal(ADAPTERS['claude-code'].parse(mockStream('claude-code')).costUsd, 0);
-  assert.equal(ADAPTERS['opencode-omo'].parse(mockStream('opencode-omo')).costUsd, 0);
+  const omo = ADAPTERS['opencode-omo'].parse(mockStream('opencode-omo'));
+  assert.equal(omo.costUsd, null, 'subagents are not in the stream, so the stream never gives a total');
+  assert.equal(omo.parentCostUsd, 0);
   assert.equal(ADAPTERS.codex.parse(mockStream('codex')).costUsd, null);
   const tokens = { input: 2_000_000, cacheRead: 1_000_000, output: 500_000, reasoning: 500_000 };
   assert.equal(priceCost({ models: {} }, 'm', tokens), null);
@@ -64,12 +66,12 @@ test('with caps, a pre-registered contract, a key and a container, a run is admi
   const pre = config.contract.preregistrations[0].sha256;
   // Share = (9 - 3 x 0.5) / 3 = 2.5 per contestant; every key carries a provider-enforced limit inside it.
   const hc = (limitUsd) => ({ mechanism: 'provider key spend limit', limitUsd });
-  const set = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, kernel: { ...config.kernel, graderHardCap: hc(0.5) }, contestants: config.contestants.map((c) => ({ ...c, hardCap: hc(2.5) })) };
+  const set = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, kernel: { ...config.kernel, graderHardCap: hc(0.5) }, contestants: config.contestants.map((c) => ({ ...c, hardCap: hc(1) })) };
   const byIdSet = (id) => set.contestants.find((c) => c.id === id);
   const base = { env: { ANTHROPIC_API_KEY: 'x' }, contractSha: pre, contestantsStarted: 3, runtime: 'container' };
   assert.deepEqual(paidRunRefusals(set, byIdSet('claude-code'), base), []);
   assert.ok(paidRunRefusals(set, byId('claude-code'), base).some((x) => x.includes('hardCap')), 'no provider-enforced limit, no paid run');
-  assert.ok(paidRunRefusals(set, { ...byIdSet('claude-code'), hardCap: hc(3) }, base).some((x) => x.includes('hardCap')), 'a limit above the share is refused');
+  assert.ok(paidRunRefusals(set, { ...byIdSet('claude-code'), hardCap: hc(1.5) }, base).some((x) => x.includes('hardCap')), 'a key limit above the per-run cap is refused, even inside the share');
   assert.ok(paidRunRefusals({ ...set, kernel: config.kernel }, byIdSet('claude-code'), base).some((x) => x.includes('graderHardCap')));
   assert.equal(shareOf(set, 3), 2.5);
   assert.ok(paidRunRefusals(set, byId('claude-code'), { ...base, runtime: 'local' }).some((x) => x.includes('credential boundary')), 'a paid host run is refused');
@@ -92,12 +94,16 @@ test('incomplete usage is unknown cost, never zero', () => {
   const nullCost = '{"type":"step_start","part":{}}\n{"type":"step_finish","part":{"cost":null,"tokens":{"input":5,"output":5}}}\n';
   assert.equal(ADAPTERS['opencode-omo'].parse(nullCost).costUsd, null, 'a step with no cost makes the run unknown');
   assert.equal(ADAPTERS['claude-code'].parse('{"type":"assistant","message":{"content":[]}}\n').costUsd, null, 'no result line, no cost');
+  const noUsage = ADAPTERS.codex.parse('{"type":"turn.started"}\n{"type":"turn.completed"}\n');
+  assert.equal(noUsage.usageComplete, false, 'a closed turn without usage is not accounted');
+  assert.equal(priceCost(pricing, 'gpt-6-astra', noUsage.tokens, noUsage.usageComplete), null);
 });
 
 test('receipts: same contract, pre-registration and grader hard cap rules as runs', () => {
   const pre = config.contract.preregistrations[0].sha256;
-  const ok = { ...config, caps: { ...config.caps, perReceiptUsd: 0.5 }, contract: { ...config.contract, sha256: pre }, kernel: { ...config.kernel, graderHardCap: { mechanism: 'key limit', limitUsd: 0.5 } } };
+  const ok = { ...config, caps: { perRunUsd: 1, perArenaUsd: 9, perReceiptUsd: 0.5 }, contract: { ...config.contract, sha256: pre }, kernel: { ...config.kernel, graderHardCap: { mechanism: 'key limit', limitUsd: 0.5 } } };
   assert.deepEqual(receiptRefusals(ok, { contractSha: pre }), []);
+  assert.ok(receiptRefusals({ ...ok, caps: { ...ok.caps, perRunUsd: null } }, { contractSha: pre }).some((r) => r.includes('perRunUsd')), 'collection cannot grade with a null run cap');
   assert.ok(receiptRefusals(config, { contractSha: config.contract.sha256 }).some((r) => r.includes('pre-registration')), 'the shipped 0.2.0 contract gets no paid receipt');
   assert.ok(receiptRefusals(ok, { contractSha: 'f'.repeat(64) }).some((r) => r.includes('pinned')));
 });
@@ -186,6 +192,7 @@ test('team-run rows and aggregates', () => {
   assert.deepEqual(row.outcome, { goalId: 'multi-agent-ops-t01', delta: 1, evidence: 'receipt:0123456789abcdef01234567' });
   assert.equal(row.lightEvents[0].kind, 'held-gate');
   assert.equal(toTeamRun(t).outcome, null, 'no receipt, no outcome claim');
+  assert.deepEqual(toTeamRun({ ...t, costSource: 'provider' }).cost, { usd: 0.5, basis: 'gateway' });
   assert.deepEqual(toTeamRun({ ...t, mock: 'good', costUsd: 0 }).cost, { usd: null, basis: 'unknown' }, 'a mock is never a free harness');
   const a = aggregate([t, { ...t, pass: false, costUsd: null }]);
   assert.equal(a.passes, 1);

@@ -32,7 +32,8 @@
       "properties": { "input": { "type": "integer" }, "output": { "type": "integer" }, "cacheRead": { "type": "integer" }, "cacheWrite": { "type": "integer" }, "reasoning": { "type": "integer" } }
     },
     "costUsd": { "type": ["number", "null"], "description": "null means unknown, never zero." },
-    "costSource": { "enum": ["cli", "pricing"] },
+    "costSource": { "enum": ["cli", "pricing", "provider"], "description": "cli: the harness reports it; pricing: tokens times the price table; provider: the provider's own counter before and after the run." },
+    "parentCostUsd": { "type": ["number", "null"], "description": "OpenCode only: the parent session's cost from the stream. Subagents are not in it." },
     "toolCalls": { "type": "integer", "minimum": 0 },
     "tools": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "id": { "type": ["string", "null"] } } }, "description": "One entry per tool call, in order, as the harness named it." },
     "scores": {

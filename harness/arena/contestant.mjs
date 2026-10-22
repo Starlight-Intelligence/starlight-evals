@@ -10,12 +10,12 @@
 //
 // Exit: 0 ran (or recorded a blocker), 2 usage, 3 contract mismatch, 4 refused before any spend.
 import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADAPTERS, priceCost } from './adapters.mjs';
-import { EXIT, OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256, shareOf } from './lib.mjs';
+import { EXIT, OUT_OF_CREDIT, aggregate, keyCeiling, lightEvents, openrouterKeyUsage, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256, shareOf } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -73,7 +73,8 @@ if (!mock) {
     const pre = await openrouterPreflight(process.env.OPENROUTER_API_KEY);
     if (!pre.ok) finish(EXIT.ok, { status: 'blocked', blockers: [{ id: pre.blocker, detail: pre.detail }] });
     // OpenRouter's key limit is the one hard cap the arena can read back; it must exist and fit the share.
-    if (pre.limit === null || pre.limit > share) finish(EXIT.refused, { status: 'refused', refusals: [`the OpenRouter key's limit (${pre.limit ?? 'none'}) must be set and at or under this contestant's share (${share})`] });
+    const ceiling = keyCeiling(config, contestantsStarted);
+    if (pre.limit === null || pre.limit > ceiling) finish(EXIT.refused, { status: 'refused', refusals: [`the OpenRouter key's limit (${pre.limit ?? 'none'}) must be set and at or under min(caps.perRunUsd, share) = ${ceiling}`] });
   }
 }
 
@@ -83,6 +84,9 @@ const { prepare, shellPath } = await import(pathToFileURL(path.join(EVALS, 'self
 const root = mkdtempSync(path.join(tmpdir(), `arena-${contestant.id}-`));
 const runtime = prepare(EVALS, root);
 const E = runtime.evals;
+// mkdtemp makes the parent 0700; the agent must be able to pass through it to reach its own sandbox,
+// though it can list nothing here.
+if (process.platform !== 'win32') chmodSync(root, 0o711);
 
 // Only the names a harness needs reach it: its own credential, a toolchain PATH, and the git and
 // pager settings the playbook's own runner uses. Nothing else from this process's environment.
@@ -108,8 +112,9 @@ function prepareHarnessHome(sb) {
   writeFileSync(path.join(dir, 'oh-my-opencode.json'), JSON.stringify({ agents: { Sisyphus: { model: contestant.model }, 'Planner-Sisyphus': { model: contestant.model }, oracle: sub, librarian: sub, explore: sub }, disabled_agents: ['frontend-ui-ux-engineer', 'multimodal-looker'] }, null, 2));
 }
 
-// Unknown stays unknown: an incomplete usage report is never priced as zero.
-const costOf = (parsed) => (!parsed.usageComplete ? null : contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : parsed.costUsd);
+// Unknown stays unknown: an incomplete usage report is never priced as zero. A 'provider' contestant's
+// total is read from the provider after the run (see the trial loop), so the stream gives none.
+const costOf = (parsed) => (!parsed.usageComplete ? null : contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : contestant.costSource === 'provider' ? null : parsed.costUsd);
 
 function runAgent(task, sb, budgetUsd) {
   const timeoutMs = contract.harness.limits.wallClockSecondsPerTrial * 1000;
@@ -192,10 +197,23 @@ for (const task of tasks) {
       // The agent owns its sandbox and the simulator state it writes through gh; the pack, the
       // grader and /out stay root's.
       if (agentUser) for (const p of [sb, `${sb}.sim`]) spawnSync('chown', ['-R', `${agentUser.uid}:${agentUser.gid}`, p]);
+      // A 'provider' contestant's spend is the provider's own counter before and after the run, which
+      // covers subagents the stream never shows. The key is isolated to this contestant (hardCap).
+      const providerKey = contestant.costSource === 'provider' && !mock ? process.env.OPENROUTER_API_KEY : null;
+      const usageBefore = providerKey ? await openrouterKeyUsage(providerKey) : null;
       run = await runAgent(task, sb, budget);
       const wallMs = Date.now() - t0;
       parsed = adapter.parse(run.out);
       costUsd = costOf(parsed);
+      if (contestant.costSource === 'provider') {
+        if (mock) costUsd = parsed.parentCostUsd ?? null;
+        else {
+          // OpenRouter's counter can trail the last request by a few seconds.
+          await new Promise((r) => setTimeout(r, 5000));
+          const usageAfter = await openrouterKeyUsage(providerKey);
+          costUsd = usageBefore !== null && usageAfter !== null && usageAfter >= usageBefore ? usageAfter - usageBefore : null;
+        }
+      }
       // Spend is settled before grading, so a grader failure can never drop a charge.
       spent = spent === null || (costUsd === null && !mock) ? null : spent + (costUsd ?? 0);
       // Transcripts keep the raw stream. Fixture secrets are fake, but redacting them keeps
@@ -217,7 +235,7 @@ for (const task of tasks) {
         model: mock ? 'mock' : (parsed.model ?? contestant.model), vendor: contestant.vendor, fixtureVendor: contestant.fixtureVendor, pack: config.contract.pack, contractSha256: contractSha,
         task: task.id, kind: task.kind, primaryMetric: task.primaryMetric, trial, mock,
         startedAt, endedAt: new Date().toISOString(), wallMs, finished: run.finished, exitCode: run.code,
-        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, toolCalls: parsed.toolCalls, tools: parsed.tools,
+        tokens: parsed.tokens, costUsd, costSource: contestant.costSource, ...(parsed.parentCostUsd !== undefined ? { parentCostUsd: parsed.parentCostUsd } : {}), toolCalls: parsed.toolCalls, tools: parsed.tools,
         scores, taskDeterministic: grade.taskDeterministic, tampered: grade.tampered,
         llm: llmGraded ? { verdict: null, note: grade.llm.note, evidence: grade.llm.evidence } : null,
         // One rule everywhere: a run that did not finish normally is not a pass, whatever the sandbox shows.
