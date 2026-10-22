@@ -19,6 +19,37 @@ export function readCaps(config) {
  * Fail closed: an unset cap, an unregistered contract, an unknown cost source or a missing
  * credential each refuses the run on its own.
  */
+/**
+ * The arena cap is split before anything runs: one receipt reservation per contestant, and the rest
+ * shared evenly. null when the arena cap or the receipt reservation is unset.
+ */
+export function shareOf(config, contestantsStarted) {
+  const caps = readCaps(config);
+  const per = config.caps?.perReceiptUsd;
+  if (caps.perArenaUsd === null || !isNum(per)) return null;
+  const n = Math.max(1, contestantsStarted);
+  return (caps.perArenaUsd - per * n) / n;
+}
+
+/**
+ * The arena's own checks stop a run only after a charge is reported, so they cannot bound spend on
+ * their own. A paid run needs a limit the provider enforces before each request: a key or workspace
+ * whose hard spend limit is at or under this contestant's share (or, for the grader, the receipt
+ * reservation). OpenRouter's limit is checked live; other providers' limits are declared by Frank.
+ */
+const hardCapOk = (hc, ceiling) => !!hc && typeof hc.mechanism === 'string' && hc.mechanism.length > 0 && isNum(hc.limitUsd) && ceiling !== null && hc.limitUsd <= ceiling;
+
+/** Every reason a paid Kernel grading may not start. Empty means admitted. */
+export function receiptRefusals(config, { contractSha }) {
+  const out = [];
+  const per = config.caps?.perReceiptUsd;
+  if (!isNum(per)) out.push('caps.perReceiptUsd is not set: the Kernel grader is a paid model call too');
+  if (contractSha !== config.contract.sha256) out.push(`collected contract ${String(contractSha).slice(0, 12)} is not the pinned ${config.contract.sha256.slice(0, 12)}`);
+  if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${String(contractSha).slice(0, 12)} has no public pre-registration`);
+  if (!hardCapOk(config.kernel?.graderHardCap, isNum(per) ? per : null)) out.push('kernel.graderHardCap must name a provider-enforced spend limit at or under caps.perReceiptUsd');
+  return out;
+}
+
 const validRates = (p) => !!p && ['inputPerMTok', 'outputPerMTok'].every((k) => isNum(p[k])) && (p.cachedInputPerMTok === undefined || isNum(p.cachedInputPerMTok));
 
 export function paidRunRefusals(config, contestant, { env, contractSha, contestantsStarted, runtime }) {
@@ -29,12 +60,16 @@ export function paidRunRefusals(config, contestant, { env, contractSha, contesta
   const caps = readCaps(config);
   if (caps.perRunUsd === null) out.push('caps.perRunUsd is not set (Frank sets it in arena.config.json)');
   if (caps.perArenaUsd === null) out.push('caps.perArenaUsd is not set (Frank sets it in arena.config.json)');
-  if (caps.perRunUsd !== null && caps.perArenaUsd !== null && caps.perRunUsd > caps.perArenaUsd / Math.max(1, contestantsStarted)) {
-    out.push(`caps.perRunUsd ${caps.perRunUsd} exceeds this contestant's share of the arena cap (${caps.perArenaUsd} / ${contestantsStarted})`);
+  const share = shareOf(config, contestantsStarted);
+  if (share !== null && share <= 0) out.push(`receipt reservations leave no arena budget for contestants (share ${share})`);
+  if (caps.perRunUsd !== null && share !== null && caps.perRunUsd > share) {
+    out.push(`caps.perRunUsd ${caps.perRunUsd} exceeds this contestant's share of the arena cap (${share})`);
   }
+  if (!hardCapOk(contestant.hardCap, share)) out.push(`${contestant.id}.hardCap must name a provider-enforced spend limit at or under this contestant's share (${share ?? 'unset'})`);
   if (!(config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha)) out.push(`contract ${contractSha.slice(0, 12)} has no public pre-registration`);
   if (contestant.costSource === 'pricing' && !validRates(config.pricing?.models?.[contestant.model])) out.push(`no valid price row for ${contestant.model} (finite inputPerMTok and outputPerMTok), so its cost cannot be capped`);
-  if (!isNum(config.caps?.perReceiptUsd)) out.push('caps.perReceiptUsd is not set: the Kernel grader is a paid model call too');
+  // A paid contestant run implies a paid receipt later, so the grader's limits are checked up front.
+  out.push(...receiptRefusals(config, { contractSha: config.contract.sha256 }).filter((r) => r.includes('perReceiptUsd') || r.includes('graderHardCap')));
   for (const c of contestant.credentials ?? []) if (!env[c.env]) out.push(`${c.env} is not set`);
   return out;
 }
@@ -50,7 +85,7 @@ export async function openrouterPreflight(key, fetchImpl = fetch) {
   if (!res.ok) return { ok: false, blocker: `openrouter-${res.status}`, detail: `OpenRouter key check returned ${res.status}. Not retried.` };
   const d = (await res.json())?.data ?? {};
   if (d.limit_remaining !== undefined && d.limit_remaining !== null && d.limit_remaining <= 0) return { ok: false, blocker: 'openrouter-402', detail: 'OpenRouter key has no remaining limit. Not retried.' };
-  return { ok: true };
+  return { ok: true, limit: typeof d.limit === 'number' ? d.limit : null };
 }
 
 /** A trial passes only when every playbook metric is at its good value. An ungraded LLM task is null, not a fail. */

@@ -1,12 +1,11 @@
 #!/bin/bash
-# Contestant container entrypoint, run as root. Root takes ownership of /out, gets the pinned
-# playbook pack (a mounted /pack, or a fetch with a read-only token), runs the contestant as the
-# unprivileged arena user with a cleaned environment, and uploads /out when the orchestrator handed
-# in a presigned URL. The contestant cannot read this shell's environment: /proc/<pid>/environ of a
-# root process is closed to another uid. Arguments pass straight to contestant.mjs.
+# Contestant container entrypoint, run as root. Root gets the pinned playbook pack (a mounted /pack,
+# or a fetch with a read-only token), runs the contestant supervisor with a cleaned environment, and
+# uploads an allowlisted, scanned /out when the orchestrator handed in a presigned URL. The
+# supervisor stays root and starts every agent as the unprivileged arena user (ARENA_AGENT_USER), so
+# the agent can write neither /out, /pack nor the grader, and cannot read a root process's
+# environment through /proc. Arguments pass straight to contestant.mjs.
 set -euo pipefail
-
-chown arena:arena /out
 
 if [ ! -f /pack/evals/contract.json ]; then
   : "${PLAYBOOKS_READ_TOKEN:?no /pack mounted and no PLAYBOOKS_READ_TOKEN to fetch it}"
@@ -18,24 +17,29 @@ if [ ! -f /pack/evals/contract.json ]; then
   git -C /tmp/playbooks checkout -q FETCH_HEAD
   unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
   mkdir -p /pack && cp -R /tmp/playbooks/playbooks/multi-agent-ops/. /pack/ && rm -rf /tmp/playbooks
-  chmod -R a+rX /pack
 fi
+# Readable by the agent (its gh simulator runs from the pack), writable by nobody but root.
+chown -R root:root /pack 2>/dev/null || true
+chmod -R a+rX,go-w /pack 2>/dev/null || true
+chown root:root /out && chmod 0755 /out
 
-# The contestant sees only the toolchain, its own credentials (ARENA_CRED_NAMES, set per image)
-# and the arena marker. Everything else, the playbook token and upload URL included, is unset in
-# the subshell before it execs into the arena user.
+# The supervisor sees the toolchain, its contestant's credentials (ARENA_CRED_NAMES, set per image)
+# and the arena markers. The playbook token and the upload URL are unset before it starts.
 status=0
 (
-  keep=" PATH LANG TZ XDG_CACHE_HOME ARENA_RUNTIME ${ARENA_CRED_NAMES:-} "
+  keep=" PATH LANG TZ XDG_CACHE_HOME ARENA_RUNTIME ARENA_AGENT_USER ${ARENA_CRED_NAMES:-} "
   for name in $(compgen -e); do
     case "$keep" in *" $name "*) ;; *) unset "$name" ;; esac
   done
-  export HOME=/home/arena
-  exec setpriv --reuid=arena --regid=arena --init-groups --no-new-privs node /arena/harness/arena/contestant.mjs "$@"
+  export HOME=/root
+  exec node /arena/harness/arena/contestant.mjs "$@"
 ) || status=$?
 
 if [ -n "${ARENA_UPLOAD_URL:-}" ]; then
-  tar -czf /tmp/arena-out.tgz -C /out .
+  # Only files the supervisor writes leave the container, and only after no injected credential
+  # value is found in any of them.
+  node /arena/harness/arena/containers/scan-out.mjs /out
+  tar -czf /tmp/arena-out.tgz -C /out contestant.json $(cd /out && ls trials.jsonl 2>/dev/null) $(cd /out && ls -d transcripts 2>/dev/null)
   # The presigned URL is a bearer credential: curl reads it from its config on stdin, not argv.
   printf 'url = "%s"\n' "$ARENA_UPLOAD_URL" | curl --fail --silent --show-error -X PUT --upload-file /tmp/arena-out.tgz --config -
 fi

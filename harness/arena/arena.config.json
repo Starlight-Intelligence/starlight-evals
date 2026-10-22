@@ -39,43 +39,58 @@
       "google": "claude"
     },
     "pipelineTestGrader": "shell:harness/arena/kernel/pipeline-grader.mjs",
-    "allowUnmeteredGraders": false,
-    "allowUnmeteredGradersNote": "The kernel meters only a grader CLI that reports its own cost. Codex and Antigravity graders do not, so a paid receipt routed to them stays refused until Frank sets this to true."
+    "graderHardCap": null,
+    "graderHardCapNote": "A provider-enforced spend limit on the grader's key, at or under caps.perReceiptUsd, e.g. { \"mechanism\": \"OpenAI project budget hard limit\", \"limitUsd\": 0.5 }. Null refuses every paid receipt."
   },
   "contestants": [
     {
       "id": "claude-code",
       "harness": "claude-code",
       "image": "harness/arena/containers/claude-code/Dockerfile",
-      "pins": { "@anthropic-ai/claude-code": "2.1.303" },
+      "pins": {
+        "@anthropic-ai/claude-code": "2.1.303"
+      },
       "model": "claude-sonnet-5-5",
       "vendor": "anthropic",
       "fixtureVendor": "anthropic",
       "costSource": "cli",
       "maxDataClass": 2,
       "credentials": [
-        { "env": "ANTHROPIC_API_KEY", "infisical": "[OPEN] location not recorded; the 2026-10-22 note names only OPENROUTER_API_KEY" }
-      ]
+        {
+          "env": "ANTHROPIC_API_KEY",
+          "infisical": "[OPEN] location not recorded; the 2026-10-22 note names only OPENROUTER_API_KEY"
+        }
+      ],
+      "hardCap": null
     },
     {
       "id": "codex",
       "harness": "codex",
       "image": "harness/arena/containers/codex/Dockerfile",
-      "pins": { "@openai/codex": "0.163.0" },
+      "pins": {
+        "@openai/codex": "0.163.0"
+      },
       "model": "gpt-6-astra",
       "vendor": "openai",
       "fixtureVendor": "openai",
       "costSource": "pricing",
       "maxDataClass": 2,
       "credentials": [
-        { "env": "OPENAI_API_KEY", "infisical": "[OPEN] location not recorded" }
-      ]
+        {
+          "env": "OPENAI_API_KEY",
+          "infisical": "[OPEN] location not recorded"
+        }
+      ],
+      "hardCap": null
     },
     {
       "id": "opencode-omo",
       "harness": "opencode-omo",
       "image": "harness/arena/containers/opencode-omo/Dockerfile",
-      "pins": { "opencode-ai": "1.0.162", "oh-my-opencode": "2.5.1" },
+      "pins": {
+        "opencode-ai": "1.0.162",
+        "oh-my-opencode": "2.5.1"
+      },
       "pinNote": "oh-my-opencode 2.5.1 (2025-12-23) is the last MIT release. Upstream relicensed to SUL-1.0 on 2025-12-24 (commit 1884658) and renamed to code-yeongyu/oh-my-openagent; 5.1.42 is a native omo binary under SUL-1.0. Moving the pin past 2.5.1 is Frank's call.",
       "model": "openrouter/deepseek/deepseek-v4.1-flash-1017",
       "subagentModel": "openrouter/qwen/qwen3.8-flash",
@@ -86,11 +101,19 @@
       "costSource": "cli",
       "maxDataClass": 1,
       "credentials": [
-        { "env": "OPENROUTER_API_KEY", "infisical": "EU, project 5578966b-0c74-4253-9a3c-bace21d97b24, environment dev, name OPENROUTER_API_KEY" }
+        {
+          "env": "OPENROUTER_API_KEY",
+          "infisical": "EU, project 5578966b-0c74-4253-9a3c-bace21d97b24, environment dev, name OPENROUTER_API_KEY"
+        }
       ],
       "knownBlockers": [
-        { "id": "openrouter-402", "measuredAt": "2026-10-22", "detail": "OpenRouter returned 402 (no credit) on the first playbook eval run. The contestant records this as a blocker and never retries." }
-      ]
+        {
+          "id": "openrouter-402",
+          "measuredAt": "2026-10-22",
+          "detail": "OpenRouter returned 402 (no credit) on the first playbook eval run. The contestant records this as a blocker and never retries."
+        }
+      ],
+      "hardCap": null
     },
     {
       "id": "eve-or-flue",
@@ -98,5 +121,6 @@
       "status": "[OPEN]",
       "note": "No eve or Flue agent was found that runs these tasks without a rewrite. eve (starlight-factory) drives a Vercel Sandbox from a GitHub or Linear channel; the tasks need a local git repo, the gh simulator on PATH and a bash tool. Flue: no estate note or GitHub search result on 2026-10-22 identified which Flue is meant."
     }
-  ]
+  ],
+  "hardCapNote": "Each runnable contestant needs hardCap: { mechanism, limitUsd }, a spend limit the provider enforces before each request (an OpenRouter key limit, an Anthropic workspace spend limit), at or under its share: (perArenaUsd - perReceiptUsd x contestants) / contestants. The arena's own cap stops a run only after a charge is reported, so this is what bounds spend. OpenRouter's limit is read back and checked live; other providers' limits are declared, not verified. Null refuses every paid run."
 }

@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:00:40.098Z",
+  "issuedAt": "2026-10-22T22:21:09.083Z",
   "taskId": "arena-2026-10-22-mock-good-claude-code",
   "verdict": "accept",
-  "artifactSha": "d7b9d08dd59d817d87c95382fceb91a1e6eda227",
-  "targetSha": "4238738b07140bf5d2c8db2de1f5311b92a7e177",
-  "contractId": "f262703dc6372f44a3d4f9d00d4a5f67349b6362b741a23e0a0c3c51983e8dd0",
+  "artifactSha": "264a7790e975ff353486209bd1cbee2b227b07e5",
+  "targetSha": "6a1ac7ac7f59386ed8b30cb18f6be2c6adb83e88",
+  "contractId": "64183605662662b8d6bd1d147f21d97ee26d47807fb54bd7d5c3df642e9d7a66",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:anthropic",
@@ -23,11 +23,21 @@
     "files": [
       {
         "path": "transcripts.sha256",
-        "role": "arena-transcripts",
+        "role": "arena-transcript-manifest",
         "sha256": "61901e950c71b1bb426412cbf6cb516e5b15d62d09098d628937ca75d008bb5c"
+      },
+      {
+        "path": "transcripts/T01/2026-10-22-mock-good.claude-code.T01.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "cfaf5ec9c03c86328db0e522a934f7b4bf42708d5c46fbf6b373d52ecac12946"
+      },
+      {
+        "path": "transcripts/T09/2026-10-22-mock-good.claude-code.T09.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "5cb257e2be6f048aca2eb86d2d862065d4d2db103aa2eeeb7aeb933732a280a8"
       }
     ]
   },
-  "keyId": "1e169f8503c04156",
-  "signature": "4fP1NXMlIz9G+b0DUjnRyPn9IvjifjR1B1VyKADcvTyvuRjiKq65iw8VqqmNKqyz+brZj3Rg7MhALOPD4LSuDg=="
+  "keyId": "0df4a4551ebbb13c",
+  "signature": "sF/bKjRQB1jLEATR7MI5WVybSC1nylfsYoI+La99CB/KAYPQZznMKiwSZ5FnclKPoFtjv334n0veqFGBPvHICw=="
 }

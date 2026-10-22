@@ -1,11 +1,11 @@
 {
   "schema": "starlight.receipt.v1",
-  "issuedAt": "2026-10-22T22:00:42.285Z",
+  "issuedAt": "2026-10-22T22:21:10.986Z",
   "taskId": "arena-2026-10-22-mock-good-codex",
   "verdict": "accept",
-  "artifactSha": "16a7b4f0f7ddc6a62cc43065824eb48da3411f72",
-  "targetSha": "4cdad40c34a5612f702b7e6f1790f5c37457d0b7",
-  "contractId": "e2fcf784ad1b2be5200e9916835c2c282ffdc9fb79b4711ef550a273482ae9b2",
+  "artifactSha": "d11d43d6a9af623afcb37052379c887151e3dbb4",
+  "targetSha": "bd40860dec0b80315a2da3ff60657098d1a31a04",
+  "contractId": "dbbef6f01b27938395bf4a2b1f41f6464f51e83f1b743d2622b30e7e3302e2d8",
   "evaluatorVersion": "kernel-eval-1",
   "policyVersion": "arena-0.1+4f48cf4181da",
   "maker": "external:openai",
@@ -23,11 +23,21 @@
     "files": [
       {
         "path": "transcripts.sha256",
-        "role": "arena-transcripts",
+        "role": "arena-transcript-manifest",
         "sha256": "043daecb48077c95047ec3a9e7789b70c24c4120776ef18f9e750ea1001c568a"
+      },
+      {
+        "path": "transcripts/T01/2026-10-22-mock-good.codex.T01.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "752142ae1e62ae4fc616d220815458fec929b5abb6b663effa73324e9abe7eee"
+      },
+      {
+        "path": "transcripts/T09/2026-10-22-mock-good.codex.T09.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "eb396de8e08937423318993c7c87c67a3615868d837d3522ee69b8a1beda9de5"
       }
     ]
   },
-  "keyId": "1e169f8503c04156",
-  "signature": "QUfF1JcI7dZOwEpjJxOj14zwbTnncp2IlcXVY4IStahxTGcqpSAmf6juV2YBb03AYQA6ABwr/tQ7TDKzm+l6CQ=="
+  "keyId": "0df4a4551ebbb13c",
+  "signature": "Vv5giPiwPaupqZS5UsQUSv0J7GZR9AMtvGeUpRhzqgIPdovuAviDjoW0NGfaXLQ135FEnYwTS4OZZlSfk1wgAg=="
 }

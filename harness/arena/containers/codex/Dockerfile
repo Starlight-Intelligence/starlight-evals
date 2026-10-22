@@ -11,12 +11,12 @@ RUN apt-get update \
 ENV PNPM_HOME=/usr/local/pnpm PATH=/usr/local/pnpm:$PATH
 RUN corepack enable pnpm && pnpm add -g @openai/codex@0.163.0 && codex --version
 
-RUN useradd --create-home --uid 10001 arena && mkdir -p /out /pack && chown arena:arena /out /pack
+RUN useradd --create-home --uid 10001 arena && mkdir -p /out /pack
 # Root-owned, so the agent (arena user) cannot rewrite the runner it is measured by.
 COPY harness/arena /arena/harness/arena
 RUN chmod +x /arena/harness/arena/containers/entrypoint.sh
-# The entrypoint starts as root and drops to the arena user before any agent runs.
-ENV ARENA_RUNTIME=container ARENA_CRED_NAMES=OPENAI_API_KEY
+# The supervisor stays root; every agent runs as the arena user, which owns only its sandbox.
+ENV ARENA_RUNTIME=container ARENA_AGENT_USER=arena ARENA_CRED_NAMES=OPENAI_API_KEY
 WORKDIR /home/arena
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/arena/harness/arena/containers/entrypoint.sh"]

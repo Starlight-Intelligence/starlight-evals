@@ -6,7 +6,7 @@ const lines = (text) => String(text).split(/\r?\n/).map((l) => { try { return JS
 const num = (v) => (Number.isFinite(+v) ? +v : 0);
 
 function empty() {
-  return { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, costUsd: null, toolCalls: 0, tools: [], commands: [], finalText: '', model: null, harnessVersion: null };
+  return { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0 }, costUsd: null, usageComplete: false, toolCalls: 0, tools: [], commands: [], finalText: '', model: null, harnessVersion: null };
 }
 
 export const ADAPTERS = {
@@ -34,7 +34,9 @@ export const ADAPTERS = {
           }
         }
         if (e.type === 'result') {
-          r.costUsd = e.total_cost_usd ?? null;
+          // Accounting is complete only when the closing result carries a finite cost.
+          r.costUsd = Number.isFinite(e.total_cost_usd) && e.total_cost_usd >= 0 ? e.total_cost_usd : null;
+          r.usageComplete = r.costUsd !== null;
           const u = e.usage ?? {};
           r.tokens = { input: num(u.input_tokens), output: num(u.output_tokens), cacheRead: num(u.cache_read_input_tokens), cacheWrite: num(u.cache_creation_input_tokens), reasoning: 0 };
           if (e.result) r.finalText = e.result;
@@ -60,8 +62,11 @@ export const ADAPTERS = {
     },
     parse(stdout) {
       const r = empty();
+      let started = 0; let completed = 0; let failed = false;
       for (const e of lines(stdout)) {
         const item = e.item ?? {};
+        if (e.type === 'turn.started') started++;
+        if (e.type === 'turn.failed' || e.type === 'error') failed = true;
         if (e.type === 'item.completed' && ['command_execution', 'mcp_tool_call', 'file_change', 'web_search'].includes(item.type)) {
           r.toolCalls++;
           r.tools.push({ name: item.type === 'mcp_tool_call' ? (item.tool ?? item.type) : item.type, id: item.id });
@@ -69,10 +74,13 @@ export const ADAPTERS = {
         }
         if (e.type === 'item.completed' && item.type === 'agent_message' && item.text) r.finalText = item.text;
         if (e.type === 'turn.completed') {
+          completed++;
           const u = e.usage ?? {};
           r.tokens.input += num(u.input_tokens); r.tokens.cacheRead += num(u.cached_input_tokens); r.tokens.output += num(u.output_tokens); r.tokens.reasoning += num(u.reasoning_output_tokens);
         }
       }
+      // A turn that started and never reported usage spent an unknown amount; zero tokens is not zero cost.
+      r.usageComplete = started > 0 && started === completed && !failed;
       return r;
     },
   },
@@ -93,7 +101,7 @@ export const ADAPTERS = {
     },
     parse(stdout) {
       const r = empty();
-      let cost = 0; let sawCost = false;
+      let cost = 0; let starts = 0; let finishes = 0; let costed = 0;
       for (const e of lines(stdout)) {
         const p = e.part ?? {};
         if (e.type === 'tool_use' || p.type === 'tool') {
@@ -102,23 +110,31 @@ export const ADAPTERS = {
           const cmd = p.state?.input?.command;
           if (cmd) r.commands.push(String(cmd));
         }
+        if (e.type === 'step_start' || p.type === 'step-start') starts++;
         if ((e.type === 'text' || p.type === 'text') && p.text) r.finalText = p.text;
         if (e.type === 'step_finish' || p.type === 'step-finish') {
           const t = p.tokens ?? {};
           r.tokens.input += num(t.input); r.tokens.output += num(t.output); r.tokens.reasoning += num(t.reasoning);
           r.tokens.cacheRead += num(t.cache?.read); r.tokens.cacheWrite += num(t.cache?.write);
-          if (p.cost !== undefined) { cost += num(p.cost); sawCost = true; }
+          finishes++;
+          if (typeof p.cost === 'number' && Number.isFinite(p.cost) && p.cost >= 0) { cost += p.cost; costed++; }
           if (p.modelID) r.model = p.modelID;
         }
       }
-      r.costUsd = sawCost ? cost : null;
+      // Every step must finish with its own finite cost. Subagent sessions do not appear in this stream
+      // (OpenCode 1.0.162 filters events to the parent session), so this is the parent's cost only; the
+      // arena's hard-cap gate, not this number, is what bounds an omo run's spend.
+      r.usageComplete = starts > 0 && starts === finishes && costed === finishes;
+      r.costUsd = r.usageComplete ? cost : null;
       return r;
     },
   },
 };
 
-/** Cost from the price table, for CLIs that report tokens but no cost. null when the model has no row. */
-export function priceCost(pricing, model, tokens) {
+/** Cost from the price table, for CLIs that report tokens but no cost. null when the model has no
+ * row or the stream's usage is incomplete. */
+export function priceCost(pricing, model, tokens, usageComplete = true) {
+  if (!usageComplete) return null;
   const p = pricing?.models?.[model];
   if (!p || !Number.isFinite(p.inputPerMTok) || !Number.isFinite(p.outputPerMTok)) return null;
   const cached = Number.isFinite(p.cachedInputPerMTok) ? p.cachedInputPerMTok : p.inputPerMTok;

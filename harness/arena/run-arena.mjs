@@ -16,7 +16,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EXIT, aggregate, paidRunRefusals, passOf, readCaps, sha256, toTeamRun } from './lib.mjs';
+import { EXIT, aggregate, paidRunRefusals, passOf, readCaps, receiptRefusals, sha256, toTeamRun } from './lib.mjs';
 import { issueArenaReceipt } from './kernel/receipt.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -45,17 +45,21 @@ if (!['local', 'docker', 'railway-plan'].includes(runtime) || (!pack && runtime 
 if (!collectOnly && existsSync(outDir) && readdirSync(outDir).length) { console.error(`${outDir} is not empty; pass a fresh --out (or --collect-only to read bundles already there)`); process.exit(EXIT.usage); }
 mkdirSync(outDir, { recursive: true });
 
-// Kernel graders are model calls through vendor CLIs, and the kernel can meter only Claude's own
-// cost report. A paid receipt therefore needs its own allowance inside the arena cap, and Frank's
-// explicit acceptance of a grader whose spend is not metered.
-const receiptAllowance = (spentUsd) => {
+// Kernel graders are model calls through vendor CLIs. A paid receipt is admitted only against the
+// whole arena's known spend (every contestant, collected first), under the same contract and
+// pre-registration rules as a run, and with a grader key whose spend limit the provider enforces.
+const receiptAllowance = ({ arenaSpentUsd, receiptsSoFarUsd, contractSha }) => {
   const caps = readCaps(config);
-  const per = config.caps?.perReceiptUsd;
-  if (typeof per !== 'number' || !Number.isFinite(per) || per < 0) return { ok: false, why: 'caps.perReceiptUsd is not set' };
-  if (config.kernel?.allowUnmeteredGraders !== true) return { ok: false, why: 'kernel.allowUnmeteredGraders is false: the kernel cannot meter a Codex or Antigravity grader, and accepting that is Frank\'s call' };
-  if (caps.perArenaUsd === null || spentUsd === null || spentUsd + per > caps.perArenaUsd) return { ok: false, why: `the arena cap cannot cover a receipt (spent ${spentUsd ?? 'unknown'} + ${per} > ${caps.perArenaUsd})` };
+  const refusals = receiptRefusals(config, { contractSha });
+  if (refusals.length) return { ok: false, why: refusals.join('; ') };
+  const per = config.caps.perReceiptUsd;
+  if (caps.perArenaUsd === null || arenaSpentUsd === null) return { ok: false, why: `arena spend is ${arenaSpentUsd === null ? 'unknown' : 'known'} and the arena cap is ${caps.perArenaUsd ?? 'unset'}` };
+  if (arenaSpentUsd + receiptsSoFarUsd + per > caps.perArenaUsd) return { ok: false, why: `the arena cap cannot cover another receipt (${arenaSpentUsd} spent + ${receiptsSoFarUsd} reserved + ${per} > ${caps.perArenaUsd})` };
   return { ok: true, maxCostUsd: per };
 };
+
+// Collection reads bundles by arena id; a fresh id would reject every downloaded row as foreign.
+if (collectOnly && !argv.includes('--arena-id')) { console.error('--collect-only needs the --arena-id the bundles were produced under'); process.exit(EXIT.usage); }
 
 // The Railway plan only writes files, so it needs no spend admission.
 if (runtime === 'railway-plan') { railwayPlan(); process.exit(EXIT.ok); }
@@ -118,7 +122,7 @@ function railwayPlan() {
     gate: 'Creating these services and deploying them is spend. Frank sets caps.perRunUsd and caps.perArenaUsd, approves the deploy, and the orchestrator refuses a paid run until both caps are set.',
     project: '[OPEN] a separate Railway project from the CI-runners pilot (railway-ci-runners), so arena jobs never share its runner host or its App key',
     services,
-    steps: ['railway link (the arena project)', ...services.map((s) => `railway up --service ${s.service} --detach   # from the starlight-evals root; builds ${s.dockerfilePath}`), 'download each contestant bundle into <out>/<contestant>/, then: node harness/arena/run-arena.mjs --collect-only --out <out> --kernel <starlight-kernel/bin/starlight.mjs>'],
+    steps: ['railway link (the arena project)', ...services.map((s) => `railway up --service ${s.service} --detach   # from the starlight-evals root; builds ${s.dockerfilePath}`), `download each contestant bundle into <out>/<contestant>/, then: node harness/arena/run-arena.mjs --collect-only --arena-id ${arenaId} --out <out> --kernel <starlight-kernel/bin/starlight.mjs>`],
   };
   writeFileSync(path.join(outDir, 'railway-plan.json'), JSON.stringify(plan, null, 2) + '\n');
   console.log(`railway plan written to ${path.join(outDir, 'railway-plan.json')}; nothing deployed`);
@@ -155,7 +159,9 @@ function manifest(dir) {
 
 let receiptsSpent = 0;
 const results = { schema: 'arena-results.v0', arenaId, createdAt: new Date().toISOString(), pipelineTest: mock !== null, mock, runtime, contract: { ...config.contract, preregistered: false }, caps: readCaps(config), contestants: [], notRun: notRunnable.map((c) => ({ id: c.id, status: c.status, note: c.note })), trials: [] };
-for (const c of contestants) {
+
+// Pass 1: collect every contestant before any receipt, so receipt admission sees the whole arena's spend.
+const collected = contestants.map((c) => {
   const dir = path.join(outDir, c.id);
   const status = readStatus(dir);
   const all = readRows(dir);
@@ -163,13 +169,19 @@ for (const c of contestants) {
   const rows = all.filter((r) => r.arenaId === arenaId && r.contestant === c.id).map(finishLlm);
   results.contract.preregistered ||= !!status.preregistered;
   const launchFailed = (launch[c.id] !== undefined && ![EXIT.ok, EXIT.refused].includes(launch[c.id])) || status.status === 'missing' || (status.arenaId && status.arenaId !== arenaId);
-  const entry = { id: c.id, harness: c.harness, vendor: c.vendor, model: rows[0]?.model ?? c.model, pins: c.pins, status: launchFailed ? 'launch-failed' : status.status, launchExit: launch[c.id] ?? null, foreignRows: all.length - rows.length, refusals: status.refusals ?? [], blockers: status.blockers ?? [], knownBlockers: c.knownBlockers ?? [], spentUsd: status.spentUsd ?? null, aggregate: aggregate(rows), receipt: null, kernelGap: null };
+  const entry = { id: c.id, harness: c.harness, vendor: c.vendor, model: rows[0]?.model ?? c.model, pins: c.pins, status: launchFailed ? 'launch-failed' : status.status, launchExit: launch[c.id] ?? null, foreignRows: all.length - rows.length, refusals: status.refusals ?? [], blockers: status.blockers ?? [], knownBlockers: c.knownBlockers ?? [], spentUsd: mock ? 0 : (status.spentUsd ?? null), aggregate: aggregate(rows), receipt: null, kernelGap: null };
   if (entry.foreignRows) entry.status = 'launch-failed';
   if (rows.length) writeFileSync(path.join(dir, 'trials.jsonl'), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  return { c, dir, rows, entry };
+});
+// A refused contestant spent nothing; any other missing or unknown figure makes the arena total unknown.
+const arenaSpentUsd = collected.reduce((s, { entry }) => (s === null ? null : entry.status === 'refused' ? s : entry.spentUsd === null ? null : s + entry.spentUsd), 0);
+
+// Pass 2: receipts.
+for (const { c, dir, rows, entry } of collected) {
   if (rows.length && !entry.foreignRows && manifest(dir)) {
     const grader = mock ? `shell:${path.join(HERE, 'kernel', 'pipeline-grader.mjs')}` : config.kernel.graders[c.vendor];
-    const spentSoFar = results.contestants.reduce((s, e) => (s === null || e.spentUsd === null ? null : s + e.spentUsd), entry.spentUsd);
-    const allowance = mock ? { ok: true } : receiptAllowance(spentSoFar === null ? null : spentSoFar + receiptsSpent);
+    const allowance = mock ? { ok: true } : receiptAllowance({ arenaSpentUsd, receiptsSoFarUsd: receiptsSpent, contractSha: rows[0].contractSha256 });
     if (!kernelBin || !existsSync(kernelBin)) entry.kernelGap = 'starlight-kernel not available on this machine (pass --kernel or STARLIGHT_KERNEL_BIN)';
     else if (!grader) entry.kernelGap = `no kernel grader is routed for vendor ${c.vendor}; the kernel's vendor list is anthropic, openai, google, xai, local`;
     else if (!allowance.ok) entry.kernelGap = `no paid receipt: ${allowance.why}`;
@@ -177,7 +189,8 @@ for (const c of contestants) {
       if (!mock) receiptsSpent += allowance.maxCostUsd;
       const compact = rows.map(({ details, ...r }) => r);
       const bundle = { schema: 'arena-bundle.v0', arenaId, contestant: c.id, contractSha256: rows[0].contractSha256, pipelineTest: mock !== null, aggregate: entry.aggregate };
-      const r = issueArenaReceipt({ kernelBin, workDir: path.join(outDir, '_kernel'), contestant: c, bundle, rows: compact, evidenceDir: dir, grader, maxCostUsd: allowance.maxCostUsd });
+      const transcripts = rows.map((r) => r.transcript).filter(Boolean);
+      const r = issueArenaReceipt({ kernelBin, workDir: path.join(outDir, '_kernel'), contestant: c, bundle, rows: compact, evidenceDir: dir, transcripts, grader, maxCostUsd: allowance.maxCostUsd });
       if (r.gap) entry.kernelGap = r.gap;
       else {
         // The receipt and the issuer's public key travel with the results; the kernel home, which
@@ -196,7 +209,8 @@ for (const c of contestants) {
   results.trials.push(...rows.map(({ details, ...r }) => ({ ...r, transcript: r.transcript ? `${c.id}/${r.transcript.replace(/\\/g, '/')}` : r.transcript })));
 }
 writeFileSync(path.join(outDir, 'results.json'), JSON.stringify(results, null, 2) + '\n');
-const receiptOf = Object.fromEntries(results.contestants.filter((e) => e.receipt).map((e) => [e.id, e.receipt.id]));
+// Only an accepted receipt that verified with the public key alone may stand as outcome evidence.
+const receiptOf = Object.fromEntries(results.contestants.filter((e) => e.receipt?.verdict === 'accept' && e.receiptVerify?.exit === 0 && e.receiptVerify?.result?.valid === true).map((e) => [e.id, e.receipt.id]));
 writeFileSync(path.join(outDir, 'team-run.jsonl'), results.trials.map((t) => JSON.stringify(toTeamRun(t, { receiptId: receiptOf[t.contestant] }))).join('\n') + (results.trials.length ? '\n' : ''));
 
 // ---- table -----------------------------------------------------------------------------------

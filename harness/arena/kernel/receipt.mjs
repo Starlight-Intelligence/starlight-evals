@@ -24,11 +24,12 @@ const fail = (m) => { console.error(m); process.exit(1); };
 for (const r of rows) {
   if (r.contractSha256 !== results.contractSha256) fail('a trial ran under another contract: ' + r.trialId);
   if (r.contestant !== results.contestant || r.arenaId !== results.arenaId) fail('a trial belongs to another contestant or arena: ' + r.trialId);
+  // The arena's one outcome rule: a run that did not finish normally is a fail; otherwise every score
+  // must be good, and an LLM-judged task also needs a pass verdict (no verdict yet means null).
   const good = r.scores.collision === 0 && r.scores.bad_merge === 0 && r.scores.recovery === 1 && r.scores.task_success === 1;
   const verdict = r.llm ? r.llm.verdict : undefined;
-  const expected = r.llm && !['pass', 'fail'].includes(verdict) ? null : good && (!r.llm || verdict === 'pass');
-  if (r.finished !== 'error' && r.pass !== expected) fail('pass disagrees with the scores and verdict: ' + r.trialId);
-  if (r.finished === 'error' && r.pass !== false) fail('an errored trial cannot pass: ' + r.trialId);
+  const expected = r.finished !== 'done' ? false : r.llm && !['pass', 'fail'].includes(verdict) ? null : good && (!r.llm || verdict === 'pass');
+  if (r.pass !== expected) fail('pass disagrees with the outcome rule: ' + r.trialId);
 }
 if (JSON.stringify(aggregate(rows)) !== JSON.stringify(results.aggregate)) fail('aggregate does not recompute from the trials');
 console.log('${MARKER}', nonce);
@@ -43,7 +44,7 @@ function sh(cmd, args, opts = {}) {
  * Returns { receipt, verify } on success, or { gap } when the kernel cannot express this contestant
  * (an unknown vendor, a missing kernel). A gap is reported, never papered over.
  */
-export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows, evidenceDir, grader, maxCostUsd }) {
+export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows, evidenceDir, transcripts = [], grader, maxCostUsd }) {
   const ledger = path.join(workDir, `ledger-${contestant.id}`);
   const home = path.join(workDir, 'kernel-home');
   mkdirSync(ledger, { recursive: true });
@@ -80,7 +81,9 @@ export function issueArenaReceipt({ kernelBin, workDir, contestant, bundle, rows
     goal: `The arena result bundle for ${contestant.id} reports exactly what its trial rows record, under the pinned playbook contract ${bundle.contractSha256}.`,
     repo: ledger, targetRef: 'main', taskClass: 'arena',
     acceptance: { commands: ['node verify-arena.mjs'], files: { 'verify-arena.mjs': CHECK }, completionMarker: MARKER },
-    evidence: [{ path: 'transcripts.sha256', role: 'arena-transcripts' }],
+    // Every transcript is bound by its own hash, so a changed transcript fails verification even when
+    // the manifest beside it is left alone.
+    evidence: [{ path: 'transcripts.sha256', role: 'arena-transcript-manifest' }, ...transcripts.map((p) => ({ path: p, role: 'arena-transcript' }))],
     // The kernel stops a grading that reports more than this; the orchestrator has already reserved
     // it inside the arena cap.
     budget: { maxAttempts: 1, ...(maxCostUsd !== undefined ? { maxCostUsd } : {}) },

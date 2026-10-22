@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ADAPTERS, priceCost } from './adapters.mjs';
-import { EXIT, OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256 } from './lib.mjs';
+import { EXIT, OUT_OF_CREDIT, aggregate, lightEvents, openrouterPreflight, outOfCreditInStream, paidRunRefusals, passOf, readCaps, redactCredentials, sha256, shareOf } from './lib.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -42,13 +42,23 @@ const contestantsStarted = +opt('contestants-started', 1);
 const wanted = opt('tasks') ? opt('tasks').split(',').map((s) => s.trim()) : null;
 const tasks = contract.tasks.filter((t) => !wanted || wanted.includes(t.id));
 const caps = readCaps(config);
-const share = caps.perArenaUsd === null ? null : caps.perArenaUsd / Math.max(1, contestantsStarted);
+const share = shareOf(config, contestantsStarted);
 
 // A destination that already holds trials would mix two arenas in one bundle.
 if (existsSync(path.join(outDir, 'trials.jsonl'))) { console.error(`${outDir} already holds trials.jsonl; use a fresh --out`); process.exit(EXIT.usage); }
 mkdirSync(outDir, { recursive: true });
 const status = { arenaId, contestant: contestant.id, harness: contestant.harness, mock, contractSha256: contractSha, preregistered: (config.contract.preregistrations ?? []).some((p) => p.sha256 === contractSha), startedAt: new Date().toISOString() };
 const finish = (code, extra) => { writeFileSync(path.join(outDir, 'contestant.json'), JSON.stringify({ ...status, ...extra, endedAt: new Date().toISOString() }, null, 2) + '\n'); process.exit(code); };
+
+// In a container this supervisor is root and every agent runs as ARENA_AGENT_USER, so the agent can
+// write neither /out, the pack, the grader nor this process's memory. An agent never runs as root.
+let agentUser = null;
+if (typeof process.getuid === 'function' && process.getuid() === 0) {
+  const name = process.env.ARENA_AGENT_USER;
+  const id = (flag) => Number((spawnSync('id', [flag, String(name)], { encoding: 'utf8' }).stdout || '').trim());
+  agentUser = name ? { name, uid: id('-u'), gid: id('-g') } : null;
+  if (!agentUser || !Number.isInteger(agentUser.uid) || agentUser.uid === 0) finish(EXIT.refused, { status: 'refused', refusals: ['running as root needs ARENA_AGENT_USER naming an unprivileged user for the agent'] });
+}
 
 if (contractSha !== config.contract.sha256) finish(EXIT.contract, { status: 'refused', refusals: [`contract.json is ${contractSha}, config pins ${config.contract.sha256}`] });
 if (wanted && tasks.length !== wanted.length) finish(EXIT.usage, { status: 'refused', refusals: [`unknown task in ${wanted.join(',')}`] });
@@ -62,6 +72,8 @@ if (!mock) {
   if (contestant.credentials?.some((c) => c.env === 'OPENROUTER_API_KEY')) {
     const pre = await openrouterPreflight(process.env.OPENROUTER_API_KEY);
     if (!pre.ok) finish(EXIT.ok, { status: 'blocked', blockers: [{ id: pre.blocker, detail: pre.detail }] });
+    // OpenRouter's key limit is the one hard cap the arena can read back; it must exist and fit the share.
+    if (pre.limit === null || pre.limit > share) finish(EXIT.refused, { status: 'refused', refusals: [`the OpenRouter key's limit (${pre.limit ?? 'none'}) must be set and at or under this contestant's share (${share})`] });
   }
 }
 
@@ -96,7 +108,8 @@ function prepareHarnessHome(sb) {
   writeFileSync(path.join(dir, 'oh-my-opencode.json'), JSON.stringify({ agents: { Sisyphus: { model: contestant.model }, 'Planner-Sisyphus': { model: contestant.model }, oracle: sub, librarian: sub, explore: sub }, disabled_agents: ['frontend-ui-ux-engineer', 'multimodal-looker'] }, null, 2));
 }
 
-const costOf = (parsed) => (contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : parsed.costUsd);
+// Unknown stays unknown: an incomplete usage report is never priced as zero.
+const costOf = (parsed) => (!parsed.usageComplete ? null : contestant.costSource === 'pricing' ? priceCost(config.pricing, contestant.model, parsed.tokens) : parsed.costUsd);
 
 function runAgent(task, sb, budgetUsd) {
   const timeoutMs = contract.harness.limits.wallClockSecondsPerTrial * 1000;
@@ -105,20 +118,18 @@ function runAgent(task, sb, budgetUsd) {
     : adapter.command({ model: contestant.model, systemPrompt: contract.harness.systemPrompt, prompt: task.prompt, perRunUsd: budgetUsd });
   return new Promise((resolve) => {
     // Its own process group on Linux, so a kill takes the harness's workers and subagents with it.
+    // In a container the supervisor is root and the agent runs as the unprivileged arena user.
     const group = process.platform !== 'win32';
-    const p = spawn(spec.cmd, spec.args, { cwd: path.join(sb, 'work'), env: agentEnv(sb), stdio: ['pipe', 'pipe', 'pipe'], detached: group });
-    let out = ''; let err = ''; let finished = 'done'; let lastCheck = 0;
+    const p = spawn(spec.cmd, spec.args, { cwd: path.join(sb, 'work'), env: agentEnv(sb), stdio: ['pipe', 'pipe', 'pipe'], detached: group, ...(agentUser ? { uid: agentUser.uid, gid: agentUser.gid } : {}) });
+    let out = ''; let err = ''; let finished = 'done';
+    // Credit errors are matched on whole lines, so a message split across two reads is still seen.
+    let outLine = ''; let errLine = '';
     const kill = (why) => {
       if (finished === 'done') finished = why;
       try { if (group) process.kill(-p.pid, 'SIGKILL'); else p.kill('SIGKILL'); } catch { p.kill('SIGKILL'); }
     };
     const timer = setTimeout(() => kill('timeout'), timeoutMs);
-    p.stdout.on('data', (d) => {
-      out += d;
-      if (mock) return;
-      if (outOfCreditInStream(d)) return kill('blocked');
-      if (Date.now() - lastCheck < 250) return;
-      lastCheck = Date.now();
+    const check = () => {
       const parsed = adapter.parse(out);
       // The contract's step limit binds every harness the same way, and it bounds spend for a CLI
       // that reports usage only when a turn ends (Codex), where the cost check below sees nothing
@@ -126,13 +137,29 @@ function runAgent(task, sb, budgetUsd) {
       if (parsed.toolCalls > contract.harness.limits.maxSteps) return kill('max_steps');
       const c = costOf(parsed);
       if (budgetUsd !== null && c !== null && c > budgetUsd) kill('cap');
+    };
+    p.stdout.on('data', (d) => {
+      out += d;
+      if (mock) return;
+      const parts = (outLine + d).split(/\r?\n/);
+      outLine = parts.pop();
+      if (parts.length && outOfCreditInStream(parts.join('\n'))) return kill('blocked');
+      if (parts.length) check();
     });
     p.stderr.on('data', (d) => {
       if (err.length < 200000) err += d;
-      if (!mock && OUT_OF_CREDIT.test(String(d))) kill('blocked');
+      if (mock) return;
+      const parts = (errLine + d).split(/\r?\n/);
+      errLine = parts.pop();
+      if (parts.some((l) => OUT_OF_CREDIT.test(l))) kill('blocked');
     });
     p.on('error', (e) => { err += String(e.message); finished = 'error'; });
-    p.on('close', (code) => { clearTimeout(timer); resolve({ code, out, err, finished: finished === 'done' && code !== 0 ? 'error' : finished }); });
+    p.on('close', (code) => {
+      clearTimeout(timer);
+      // Whatever is left at the end, trailing fragments included, is checked before the queue moves on.
+      if (!mock && (outOfCreditInStream(out) || OUT_OF_CREDIT.test(err))) finished = 'blocked';
+      resolve({ code, out, err, finished: finished === 'done' && code !== 0 ? 'error' : finished });
+    });
     if (spec.stdin) p.stdin.write(spec.stdin);
     p.stdin.end();
   });
@@ -141,7 +168,10 @@ function runAgent(task, sb, budgetUsd) {
 const rawFile = path.join(outDir, 'trials.jsonl');
 const credNames = (contestant.credentials ?? []).map((c) => c.env);
 const persist = (text) => redactCredentials(text, process.env, credNames);
+// Grading runs as root over a tree the agent owns; git refuses that without an explicit safe.directory.
+const graderEnv = agentUser ? { ...runtime.env, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: '*' } : runtime.env;
 const rows = [];
+// Once any charge is unknown the running total is unknown too, and stays so.
 let spent = 0;
 let stop = null;
 for (const task of tasks) {
@@ -149,7 +179,7 @@ for (const task of tasks) {
     const trialId = `${arenaId}.${contestant.id}.${task.id}.${trial}`;
     if (stop) { console.log(`${trialId} not started: ${stop.id}`); continue; }
     let budget = caps.perRunUsd;
-    if (!mock && share !== null) budget = Math.min(budget, share - spent);
+    if (!mock && share !== null && spent !== null) budget = Math.min(budget, share - spent);
     if (!mock && budget <= 0) { console.log(`${trialId} skipped: arena share spent`); continue; }
     const sb = path.join(root, `${task.id}-${trial}`);
     const startedAt = new Date().toISOString();
@@ -159,12 +189,15 @@ for (const task of tasks) {
       const b = spawnSync('bash', [shellPath(path.join(E, 'fixtures', 'scenarios', `${task.id}.sh`)), shellPath(sb), contestant.fixtureVendor], { encoding: 'utf8', timeout: 120000, env: runtime.env });
       if (b.status !== 0) throw new Error(`fixture ${task.id}: ${(b.stderr || String(b.error)).slice(-400)}`);
       prepareHarnessHome(sb);
+      // The agent owns its sandbox and the simulator state it writes through gh; the pack, the
+      // grader and /out stay root's.
+      if (agentUser) for (const p of [sb, `${sb}.sim`]) spawnSync('chown', ['-R', `${agentUser.uid}:${agentUser.gid}`, p]);
       run = await runAgent(task, sb, budget);
       const wallMs = Date.now() - t0;
       parsed = adapter.parse(run.out);
       costUsd = costOf(parsed);
       // Spend is settled before grading, so a grader failure can never drop a charge.
-      spent += costUsd ?? 0;
+      spent = spent === null || (costUsd === null && !mock) ? null : spent + (costUsd ?? 0);
       // Transcripts keep the raw stream. Fixture secrets are fake, but redacting them keeps
       // published transcripts clear of secret scanners, as the playbook's own runner does; live
       // credentials are redacted by name from everything persisted.
@@ -174,7 +207,7 @@ for (const task of tasks) {
       mkdirSync(path.join(outDir, 'transcripts', task.id), { recursive: true });
       const transcript = `transcripts/${task.id}/${trialId}.jsonl`;
       writeFileSync(path.join(outDir, transcript), text);
-      const g = spawnSync(process.execPath, [path.join(E, 'graders', 'grade.mjs'), task.id, sb], { encoding: 'utf8', env: runtime.env, timeout: 120000 });
+      const g = spawnSync(process.execPath, [path.join(E, 'graders', 'grade.mjs'), task.id, sb], { encoding: 'utf8', env: graderEnv, timeout: 120000 });
       if (g.status !== 0) throw new Error(`grade ${task.id}: ${(g.stderr || String(g.error)).slice(-400)}`);
       const grade = JSON.parse(g.stdout);
       const scores = { collision: grade.collision, bad_merge: grade.bad_merge, recovery: grade.recovery, task_success: grade.task_success };
@@ -187,7 +220,8 @@ for (const task of tasks) {
         tokens: parsed.tokens, costUsd, costSource: contestant.costSource, toolCalls: parsed.toolCalls, tools: parsed.tools,
         scores, taskDeterministic: grade.taskDeterministic, tampered: grade.tampered,
         llm: llmGraded ? { verdict: null, note: grade.llm.note, evidence: grade.llm.evidence } : null,
-        pass: passOf(scores, { llmGraded, llmVerdict: null }),
+        // One rule everywhere: a run that did not finish normally is not a pass, whatever the sandbox shows.
+        pass: run.finished === 'done' ? passOf(scores, { llmGraded, llmVerdict: null }) : false,
         events: lightEvents({ commands: parsed.commands, finalText: parsed.finalText, primaryMetric: task.primaryMetric, scores }),
         grader: { deterministic: 'playbook evals/graders/grade.mjs', llm: llmGraded ? 'pending: finished by the orchestrator with a grader from another vendor' : null },
         systemPromptDelivery: adapter.systemPromptDelivery, transcript, details: grade.details,
@@ -209,4 +243,4 @@ for (const task of tasks) {
   }
 }
 if (!flag('keep') && existsSync(root)) rmSync(root, { recursive: true, force: true, maxRetries: 3 });
-finish(EXIT.ok, { status: stop ? 'blocked' : 'ran', ...(stop ? { blockers: [stop] } : {}), spentUsd: mock ? null : spent, aggregate: aggregate(rows) });
+finish(EXIT.ok, { status: stop ? 'blocked' : 'ran', ...(stop ? { blockers: [stop] } : {}), spentUsd: mock ? 0 : spent, aggregate: aggregate(rows) });
