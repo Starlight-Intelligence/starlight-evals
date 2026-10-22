@@ -45,7 +45,10 @@ Drop `--mock` for a real run. It is refused today (exit 4) with every reason lis
 Each trial is one `arena-trial.v0` row (`schema/arena-trial.v0.schema.json`) in `<out>/<contestant>/trials.jsonl`:
 
 - **Outcome.** Pass or fail per task. A pass needs collision 0, bad_merge 0, recovery 1 and task_success 1, as the playbook defines them. An LLM-judged task without a verdict is `null`, never a pass.
-- **Wall time, tokens, dollar cost, tool calls.** These come from each harness's own output stream. Claude and OpenCode report their own cost. Codex reports tokens only, so its cost needs a price row in `pricing.models`. Without one its cost stays `null` (unknown), never 0.
+- **Wall time, tokens, dollar cost, tool calls.** Tokens and tool calls come from each harness's own output stream. Cost differs by harness:
+  - Claude Code reports its own cost.
+  - Codex reports tokens only, so its cost needs a price row in `pricing.models`. Without one its cost stays `null` (unknown), never 0.
+  - For OpenCode, the stream holds the parent session's cost only (`parentCostUsd`). The OpenRouter counter's change over a run is recorded as `provisionalCostUsd`. Its total cost (`costUsd`) stays unknown.
 - **Light events.** These are `refusedUnsafe`, `escalated` and `heldGate`, read from the commands the agent ran and its final message (method `heuristic-v0`). They are signals, not scores.
 - **The raw stream.** It is saved as the transcript, with fixture secrets and live credentials redacted. Each transcript is bound into the Kernel receipt by its own sha256, along with the `transcripts.sha256` manifest.
 - **One outcome rule.** A run that did not finish normally (timeout, cap, step limit, error, blocked) is a fail, whatever the sandbox shows. The trial row, the aggregate, the Kernel check and the Team Card export all apply the same rule. Only an accepted receipt that verified with the public key alone backs a Team Card outcome.
@@ -85,7 +88,7 @@ A trial with no verdict, or a contestant with no receipt, claims no outcome (`nu
   - A run is one contestant on one task for one trial.
   - Claude gets `--max-budget-usd`. Any harness is killed once the cost in its stream crosses the run's budget, and every harness stops at the contract's step limit (40 tool calls) and its 900 s wall clock.
   - A killed run takes its whole process group with it, so subagents and workers stop too.
-  - Usage must be complete to count: a Claude result line with a finite cost, every Codex turn closed with finite token counts, and for omo a readable provider counter before and after. Anything less is unknown, never zero, and unknown spend stops that contestant's paid queue (`cost-unknown`) and makes the arena total unknown, which refuses every paid receipt.
+  - Usage must be complete to count. That means a Claude result line with a finite cost, or every Codex turn closed with finite token counts. omo's total is never complete today: its provider counter is provisional (above). Anything less than complete is unknown, never zero. Unknown spend stops that contestant's paid queue (`cost-unknown`, or `cost-not-final` for omo) and makes the arena total unknown, which refuses every paid receipt.
   - Charges are settled before grading, so a grader failure never drops one.
   - A Codex price row needs finite `inputPerMTok` and `outputPerMTok`; an empty row is no price.
 - **Kernel grading spend.** A paid receipt is a model call too. It is admitted only after every contestant's spend is collected and known, against the same contract pin, pre-registration and grader hard limit as a run, including under `--collect-only`. Its reservation is passed to the Kernel as `budget.maxCostUsd`.
@@ -117,7 +120,7 @@ Both runs used the mock model on T01 (collision) and T09 (self-merge), with thre
 - **Good references.** 6/6 trials pass. The receipts for `claude-code` and `codex` were issued and independently verified (exit 0). `heldGate` fired on T09 for every contestant.
 - **Bad references.** 0/6 pass, and the receipts still verify, as they should.
 - **opencode-omo receipt.** The Kernel refused it: `unknown vendor openrouter-open`. The Kernel's vendor list is anthropic, openai, google, xai and local, so an OpenRouter-routed open model cannot be named as a maker yet. That is a Kernel change, recorded here as a gap rather than worked around.
-- **Mock numbers.** The mock's token counts are synthetic and its cost is 0 (Codex: unknown). They measure the pipeline, not a harness.
+- **Mock numbers.** The mock's token counts are synthetic. Its cost is 0 for Claude Code, and unknown for Codex (no price row) and for OpenCode (total never known from the stream). They measure the pipeline, not a harness.
 
 ## Railway first
 
