@@ -1,0 +1,20 @@
+# Copy to .github/workflows/pr-gate-poke.yml. It relays review events to pr-gate.
+# pull_request_review runs workflow code from the PR itself, so this file holds no permissions and
+# does nothing but finish; pr-gate picks it up via workflow_run from the default branch.
+name: pr-gate-poke
+# The run title carries the PR number back to pr-gate, which re-reads that PR from the API, so a
+# forged title can only cause a re-read of some PR, never a decision on fabricated facts.
+run-name: '${{ github.event.pull_request.number }}'
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions: {}
+
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - run: echo "review on PR ${{ github.event.pull_request.number }}"

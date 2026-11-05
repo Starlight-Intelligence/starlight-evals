@@ -1,0 +1,47 @@
+# Installed from the Starlight-Intelligence/.github pr-gate template, pinned (both places below) to
+# e3faf85affc49cc8b97a87bebdf20bd97833d6b4, the main commit that merged the gate (#1). workflow_run
+# lists this repo's CI workflows; required-checks lists their check names. merge stays false until
+# autonomous landing is ruled for this repo.
+#
+# Every trigger here runs this file from the default branch, never from the PR, so a PR cannot
+# rewrite the gate it is judged by. Reviews arrive through pr-gate-poke (no permissions) and come
+# back here as workflow_run.
+name: pr-gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited]
+  issue_comment:
+    types: [created]
+  workflow_run:
+    workflows: [pr-gate-poke, ci, continuity]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  checks: read
+
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.display_title }}
+  cancel-in-progress: true
+
+jobs:
+  pr-gate:
+    # Comments re-run the gate only for a result from an allowlisted reviewer bot, or an exact
+    # `/gate` from an owner or org member. A comment can only trigger a re-read, never a sign-off.
+    if: >-
+      (github.event_name == 'pull_request_target') ||
+      (github.event_name == 'workflow_run') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && (
+        contains(fromJSON('["chatgpt-codex-connector[bot]","claude[bot]"]'), github.event.comment.user.login) ||
+        (github.event.comment.body == '/gate' && contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association))))
+    uses: Starlight-Intelligence/.github/.github/workflows/pr-gate.yml@e3faf85affc49cc8b97a87bebdf20bd97833d6b4
+    with:
+      # Reusable inputs are typed; the number is passed as a string. A relayed review with no PR
+      # attached falls back to the poke run title, which is the PR number.
+      pr-number: ${{ format('{0}', github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.display_title) }}
+      required-checks: validate-and-probe, scorecard
+      merge: false
+      gate-ref: e3faf85affc49cc8b97a87bebdf20bd97833d6b4
