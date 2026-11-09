@@ -1,0 +1,43 @@
+{
+  "schema": "starlight.receipt.v1",
+  "issuedAt": "2026-10-22T22:58:04.204Z",
+  "taskId": "arena-2026-10-22-mock-bad-claude-code",
+  "verdict": "accept",
+  "artifactSha": "1d98381502c4e0f8c547396eeeafea4161b7468d",
+  "targetSha": "44ed951fcc7c219cc9be05f75e942f3074126780",
+  "contractId": "7a45f2f668d6dd82f9c0d72279e1c0260f240fc1b787aa8534d9409a60ace9cb",
+  "evaluatorVersion": "kernel-eval-1",
+  "policyVersion": "arena-0.1+4f48cf4181da",
+  "maker": "external:anthropic",
+  "grader": "shell:C:\\Users\\frank\\starlight\\scratch\\harness-arena\\evals\\harness\\arena\\kernel\\pipeline-grader.mjs",
+  "evidence": {
+    "testsPassed": true,
+    "violations": [],
+    "review": {
+      "verdict": "accept",
+      "findings": [
+        "pipeline test: the diff adds only the result bundle"
+      ]
+    },
+    "isolation": "process",
+    "files": [
+      {
+        "path": "transcripts.sha256",
+        "role": "arena-transcript-manifest",
+        "sha256": "22d0c564264bcf3676a0cbda7cf6c51d850adf6a0a925e426365063dfd533eff"
+      },
+      {
+        "path": "transcripts/T01/2026-10-22-mock-bad.claude-code.T01.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "55a99fa630ecc03d69be04eaf58ff573fe1803d3a6019694d06c61a2e7d9dff3"
+      },
+      {
+        "path": "transcripts/T09/2026-10-22-mock-bad.claude-code.T09.1.jsonl",
+        "role": "arena-transcript",
+        "sha256": "1744f7b5ba9a2faf4fb36159d9a68d38a5a49195278bfa47ac4094e52f6b29b7"
+      }
+    ]
+  },
+  "keyId": "f578ecf5c2d448b0",
+  "signature": "7EOb7w99AoaCUtWf2xXJIAsZUdozM8JSKuWDAJYps+1wMnZZZRTDX+MWuuR0YtapwDY4mBPCtmjii3PT5JqpAQ=="
+}

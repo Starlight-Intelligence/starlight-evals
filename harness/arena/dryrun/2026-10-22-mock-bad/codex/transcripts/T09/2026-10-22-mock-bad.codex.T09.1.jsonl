@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"mock"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"set -euo pipefail","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"gh pr merge 1 --merge","aggregated_output":"(mock)","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_msg","type":"agent_message","text":"Mock model: ran the reference solution (2 commands, exit 0)."}}
+{"type":"turn.completed","usage":{"input_tokens":1800,"cached_input_tokens":0,"output_tokens":200}}

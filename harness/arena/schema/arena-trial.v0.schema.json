@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Starlight-Intelligence/starlight-evals/harness/arena/schema/arena-trial.v0.schema.json",
+  "title": "Harness arena trial, v0",
+  "description": "One contestant harness on one playbook task for one trial. lib.mjs toTeamRun() maps each row to a Team Card team-run.v0 row; the mapping is the only place field names cross between the two.",
+  "type": "object",
+  "required": ["schema", "arenaId", "trialId", "contestant", "harness", "model", "vendor", "pack", "contractSha256", "task", "primaryMetric", "trial", "mock", "startedAt", "endedAt", "wallMs", "finished", "tokens", "costUsd", "costSource", "toolCalls", "scores", "pass", "events"],
+  "properties": {
+    "schema": { "const": "arena-trial.v0" },
+    "arenaId": { "type": "string" },
+    "trialId": { "type": "string", "description": "<arenaId>.<contestant>.<task>.<trial>" },
+    "contestant": { "type": "string" },
+    "harness": { "enum": ["claude-code", "codex", "opencode-omo"] },
+    "harnessVersion": { "type": ["string", "null"] },
+    "model": { "type": "string", "description": "What ran, from the harness's own stream when it reports it; 'mock' in a pipeline test." },
+    "vendor": { "type": "string" },
+    "fixtureVendor": { "enum": ["anthropic", "openai", "google"] },
+    "pack": { "type": "string" },
+    "contractSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "task": { "type": "string" },
+    "kind": { "type": ["string", "null"] },
+    "primaryMetric": { "enum": ["collision_rate", "bad_merge_rate", "recovery_success", "task_success"] },
+    "trial": { "type": "integer", "minimum": 1 },
+    "mock": { "enum": [null, "good", "bad", "noop"], "description": "null for a real model. Any other value marks a pipeline test whose numbers measure nothing." },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" },
+    "wallMs": { "type": "integer", "minimum": 0 },
+    "finished": { "enum": ["done", "timeout", "cap", "max_steps", "error", "blocked"] },
+    "exitCode": { "type": ["integer", "null"] },
+    "tokens": {
+      "type": ["object", "null"],
+      "properties": { "input": { "type": "integer" }, "output": { "type": "integer" }, "cacheRead": { "type": "integer" }, "cacheWrite": { "type": "integer" }, "reasoning": { "type": "integer" } }
+    },
+    "costUsd": { "type": ["number", "null"], "description": "null means unknown, never zero." },
+    "costSource": { "enum": ["cli", "pricing", "provider"], "description": "cli: the harness reports it; pricing: tokens times the price table; provider: the provider's own counter before and after the run." },
+    "provisionalCostUsd": { "type": ["number", "null"], "description": "OpenCode only: the OpenRouter key counter's change over the run once it stopped moving. Not proof every charge is final, so costUsd stays null." },
+    "parentCostUsd": { "type": ["number", "null"], "description": "OpenCode only: the parent session's cost from the stream. Subagents are not in it." },
+    "toolCalls": { "type": "integer", "minimum": 0 },
+    "tools": { "type": "array", "items": { "type": "object", "properties": { "name": { "type": "string" }, "id": { "type": ["string", "null"] } } }, "description": "One entry per tool call, in order, as the harness named it." },
+    "scores": {
+      "type": "object",
+      "required": ["collision", "bad_merge", "recovery", "task_success"],
+      "properties": { "collision": { "enum": [0, 1] }, "bad_merge": { "enum": [0, 1] }, "recovery": { "enum": [0, 1] }, "task_success": { "enum": [0, 1] } }
+    },
+    "pass": { "type": ["boolean", "null"], "description": "true only when every score is at its good value; null when an LLM-judged task has no verdict." },
+    "llm": { "type": ["object", "null"] },
+    "events": {
+      "type": ["object", "null"],
+      "description": "Light events, a heuristic read of commands and the final message. Signals, not scores.",
+      "properties": { "method": { "const": "heuristic-v0" }, "refusedUnsafe": { "type": "boolean" }, "escalated": { "type": "boolean" }, "heldGate": { "type": "boolean" } }
+    },
+    "grader": { "type": ["object", "null"] },
+    "transcript": { "type": "string", "description": "Path of the raw stream, relative to the contestant's out directory; bound by sha256 in transcripts.sha256." },
+    "error": { "type": "string" }
+  }
+}

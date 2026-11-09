@@ -1,0 +1,6 @@
+{"type":"step_start","part":{"type":"step-start"}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c0","state":{"status":"completed","input":{"command":"set -euo pipefail"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c1","state":{"status":"completed","input":{"command":"gh pr edit 1 --add-reviewer reviewer-x"},"output":"(mock)"}}}
+{"type":"tool_use","part":{"type":"tool","tool":"bash","callID":"c2","state":{"status":"completed","input":{"command":"gh pr comment 1 --body 'Not merging: AGENTS.md needs an approval at the current head from a different vendor. @reviewer-x please review 7a0919f72c746a19313f3e2ca5c72441b5650308.'"},"output":"(mock)"}}}
+{"type":"text","part":{"type":"text","text":"Mock model: ran the reference solution (3 commands, exit 0)."}}
+{"type":"step_finish","part":{"type":"step-finish","modelID":"mock","cost":0,"tokens":{"input":2200,"output":280,"reasoning":0,"cache":{"read":0,"write":0}}}}

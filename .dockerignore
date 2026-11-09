@@ -1,0 +1,12 @@
+# Build context allowlist for the harness arena images (docker build -f harness/arena/containers/<id>/Dockerfile .).
+# Only the arena's code enters an image: never run outputs, kernel homes (private signing keys),
+# transcripts, dry runs or anything else in the repository.
+*
+!harness/arena/
+harness/arena/runs/
+harness/arena/dryrun/
+harness/arena/test/
+**/_kernel/
+**/transcripts/
+**/*.pem
+**/.env*

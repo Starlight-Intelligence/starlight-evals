@@ -1,0 +1,5 @@
+# The kernel work directory holds the run's private signing key and throwaway ledgers.
+# Receipts and the public key are copied next to results.json; this never leaves the machine.
+_kernel/
+# Paid runs are published as dated receipts after review, not committed raw from a run.
+runs/

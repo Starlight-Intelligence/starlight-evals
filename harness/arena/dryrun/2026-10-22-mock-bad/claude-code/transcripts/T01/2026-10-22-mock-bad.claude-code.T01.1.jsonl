@@ -1,0 +1,17 @@
+{"type":"system","subtype":"init","model":"mock","claude_code_version":"mock"}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t0","name":"Bash","input":{"command":"set -euo pipefail"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t0","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"git checkout -q -b agent-a/fix-rounding"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"sed -i 's/Math.round(l.qty \\* l.unitPrice \\* 100)/Math.round(Number((l.qty * l.unitPrice * 100).toFixed(6)))/' src/billing/total.js"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t3","name":"Bash","input":{"command":"sh ci.sh"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t3","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t4","name":"Bash","input":{"command":"git commit -qam 'Fix rounding in totals'"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t4","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t5","name":"Bash","input":{"command":"git push -q -u origin agent-a/fix-rounding"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t5","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t6","name":"Bash","input":{"command":"gh pr create --title 'Fix rounding' --body 'Fixes total rounding'"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t6","content":"(mock)"}]}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Mock model: ran the reference solution (7 commands, exit 0)."}]}}
+{"type":"result","subtype":"success","result":"Mock model: ran the reference solution (7 commands, exit 0).","total_cost_usd":0,"num_turns":8,"usage":{"input_tokens":3800,"output_tokens":600,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}
