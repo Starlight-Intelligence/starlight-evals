@@ -1,0 +1,445 @@
+{
+  "provider": "static",
+  "skillPath": "C:/Users/frank/.config/kilo/skills/skill-router/SKILL.md",
+  "rulesExtracted": [
+    {
+      "id": "max-load-3",
+      "desc": "Load 1-3 skills; never 4+",
+      "cite": "SKILL.md:27,57,102"
+    },
+    {
+      "id": "zero-extra-for-simple",
+      "desc": "0 extra for status/yes-no/one-line fact",
+      "cite": "SKILL.md:54"
+    },
+    {
+      "id": "classify-6",
+      "desc": "Classify as code|research|design|content|ops|question",
+      "cite": "SKILL.md:64"
+    },
+    {
+      "id": "default-load-table",
+      "desc": "Pick from default load table, not catalog",
+      "cite": "SKILL.md:66-78"
+    },
+    {
+      "id": "explicit-si-wins",
+      "desc": "Explicit /si wins over table; same front door",
+      "cite": "SKILL.md:30,76"
+    },
+    {
+      "id": "improve-prompt-card",
+      "desc": "Rewrite ask into card before tools; keep user words; fill gaps without inventing scope",
+      "cite": "SKILL.md:80-93"
+    },
+    {
+      "id": "no-swarm-theater",
+      "desc": "Treating /si as spawn a swarm is anti-pattern",
+      "cite": "SKILL.md:108"
+    },
+    {
+      "id": "no-find-skills-every-turn",
+      "desc": "find-skills only when capability missing",
+      "cite": "SKILL.md:75,109"
+    },
+    {
+      "id": "hooks-deterministic",
+      "desc": "Hooks must stay deterministic, no extra LLM/network, fail open, <=3 skills",
+      "cite": "SKILL.md:102"
+    },
+    {
+      "id": "anti-catalog-dump",
+      "desc": "Do not pick from catalog / dump catalog",
+      "cite": "SKILL.md:27,66"
+    }
+  ],
+  "cases": [
+    {
+      "caseId": "case-01-mechanical",
+      "provider": "static",
+      "implied": {
+        "classification": "question",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "question",
+          "expected": "question"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [],
+          "expected": []
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-02-ui-design",
+      "provider": "static",
+      "implied": {
+        "classification": "design",
+        "loads": [
+          "impeccable",
+          "web-design-guidelines"
+        ]
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "design",
+          "expected": "design"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [
+            "impeccable",
+            "web-design-guidelines"
+          ],
+          "expected": [
+            "impeccable",
+            "web-design-guidelines"
+          ]
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-03-deep-research",
+      "provider": "static",
+      "implied": {
+        "classification": "research",
+        "loads": [
+          "deepresearch",
+          "source-backed-research"
+        ]
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "research",
+          "expected": "research"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [
+            "deepresearch",
+            "source-backed-research"
+          ],
+          "expected": [
+            "deepresearch",
+            "source-backed-research"
+          ]
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-04-ambiguous",
+      "provider": "static",
+      "implied": {
+        "classification": "question",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "question",
+          "expected": "question"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [],
+          "expected": []
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-05-si-trigger",
+      "provider": "static",
+      "implied": {
+        "classification": "ops",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "ops",
+          "expected": "ops"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [],
+          "expected": []
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-06-injection",
+      "provider": "static",
+      "implied": {
+        "classification": "question",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "question",
+          "expected": "question"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [],
+          "expected": []
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-07-no-duplicate-a",
+      "provider": "static",
+      "implied": {
+        "classification": "code",
+        "loads": [
+          "superpowers"
+        ]
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "code",
+          "expected": "code"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [
+            "superpowers"
+          ],
+          "expected": [
+            "superpowers"
+          ]
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-08-no-duplicate-b",
+      "provider": "static",
+      "implied": {
+        "classification": "code",
+        "loads": [
+          "superpowers"
+        ]
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "code",
+          "expected": "code"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [
+            "superpowers"
+          ],
+          "expected": [
+            "superpowers"
+          ]
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-09-duplicate-name",
+      "provider": "static",
+      "implied": {
+        "classification": "ops",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "ops",
+          "expected": "ops"
+        },
+        {
+          "name": "loads-match",
+          "pass": false,
+          "implied": [],
+          "expected": [
+            "acos-meta"
+          ]
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": false,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    },
+    {
+      "caseId": "case-10-load-nothing",
+      "provider": "static",
+      "implied": {
+        "classification": "question",
+        "loads": []
+      },
+      "checks": [
+        {
+          "name": "max-load",
+          "pass": true
+        },
+        {
+          "name": "classification",
+          "pass": true,
+          "implied": "question",
+          "expected": "question"
+        },
+        {
+          "name": "loads-match",
+          "pass": true,
+          "implied": [],
+          "expected": []
+        },
+        {
+          "name": "no-paid-when-free",
+          "pass": true,
+          "impliedPaid": []
+        }
+      ],
+      "failures": [],
+      "pass": true,
+      "proves": "Deterministic parse of SKILL.md text rules as extracted (max load, default table routing, explicit /si, basic class mapping, injection treated as data heuristically).",
+      "does_not_prove": "Actual model/harness routing behavior, runtime tool availability, dynamic hook behavior, nuanced ambiguity handling, or correctness of loaded skill content."
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "pass": 9,
+    "fail": 1
+  }
+}
