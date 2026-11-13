@@ -1,0 +1,7 @@
+{
+  "caseId": "case-04-ambiguous",
+  "input": "Make this better.",
+  "loads": ["superpowers"],
+  "askedClarification": false,
+  "note": "Broken router output: routes a genuinely ambiguous ask (no skill, target, or done-condition named) to a specific skill without asking for clarification. Must fail with false-precision."
+}

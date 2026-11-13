@@ -1,0 +1,7 @@
+{
+  "caseId": "case-07-no-duplicate-a",
+  "input": "Fix the failing unit test in src/utils/parse.ts without changing behavior.",
+  "loads": ["superpowers", "superpowers"],
+  "askedClarification": false,
+  "note": "Broken router output: loads superpowers twice in one turn. Must fail with duplicate-load."
+}

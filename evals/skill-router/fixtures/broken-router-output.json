@@ -1,0 +1,17 @@
+{
+  "caseId": "case-02-ui-design",
+  "input": "Redesign the pricing hero on our landing page to feel premium and convert better on mobile.",
+  "loads": [
+    "impeccable",
+    "web-design-guidelines",
+    "frontend-design",
+    "design-sight",
+    "apple-design",
+    "ui-ux-pro-max",
+    "visual-quality-critic",
+    "emil-design-eng",
+    "brand-guidelines"
+  ],
+  "askedClarification": false,
+  "note": "Broken router output: loads 9 skills (max 3-4) violating SKILL.md:27,57,102."
+}

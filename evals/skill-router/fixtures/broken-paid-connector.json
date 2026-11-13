@@ -1,0 +1,7 @@
+{
+  "caseId": "case-03-deep-research",
+  "input": "Do deep research on current EU AI Act enforcement timelines and cite primary sources.",
+  "loads": ["deepresearch", "firecrawl"],
+  "askedClarification": false,
+  "note": "Broken router output: deep-research turn where the router reaches for a paid/metered connector (firecrawl) instead of relying on the built-in research stack. Must fail with paid-when-free."
+}
