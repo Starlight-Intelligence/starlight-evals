@@ -29,8 +29,8 @@ jobs:
       - name: Validate committed scorecard before the harness
         run: node -e "JSON.parse(require('node:fs').readFileSync('scorecards/income-payments-safety-v0.2.json','utf8')); console.log('committed scorecard parses OK')"
 
-      - name: Harness scripts answer --help and reject unknown flags before any model call or fetch
-        run: node --test harness/cli.test.mjs
+      - name: Validate harness CLI and paired comparison regressions
+        run: node --test harness/cli.test.mjs harness/arena/test/compare-trials.test.mjs
 
       - name: Run income/payments red-blue harness (MCP-graceful → PENDING in CI; writes only to out/)
         run: node harness/income-payments-safety.mjs
