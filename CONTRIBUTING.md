@@ -54,4 +54,22 @@ Canonical methodology + issues: the
 [Starlight Intelligence System](https://github.com/frankxai/Starlight-Intelligence-System)
 repo. This mirror tracks published results; methodology debates happen upstream.
 
+### Reproduce a paired arena comparison
+
+In one checkout, compare the published dry-run trial exports. Node 22+ is sufficient. This command reads two files and prints a JSON comparison. It uses no credentials, provider calls or network.
+
+```sh
+run=harness/arena/dryrun/2026-10-22-mock-good
+node harness/arena/compare-trials.mjs --baseline "$run/claude-code/trials.jsonl" --candidate "$run/codex/trials.jsonl"
+node --test harness/arena/test/compare-trials.test.mjs
+```
+
+The example has two paired mock tasks. Both contestants pass both. The report marks the pipeline test, suppresses dollar comparisons, and exposes differing fixture vendors. The fixtures establish that the integration works. They cannot rank the models.
+
+For an external reproduction, state the checkout commit, publishable input digests, comparison, and one weakness in the existing scorecard submission. Share approved task identifiers only. Contributors can retain prompts, responses and raw customer traces locally. A maintainer can rerun the command against consented exports and compare both SHA-256 digests.
+
+Pairing requires the same arena, contract, pack, task and repetition, with a single contestant configuration per file. Reordering is allowed. Missing or duplicated pairs fail the comparison. Check the planned run manifest separately: two exports can omit the same task. Different fixture vendors can produce different inputs for a shared task. A null vendor comparison means the export omitted that provenance. Inspect that flag before attributing a difference to a model. Digests identify the files compared; issuer authentication remains with the arena's receipt verifier.
+
+For real trials the report includes spend on failed tasks in cost per pass, preserves unknown spend as null, and identifies the accounting source (including price-table estimates). Ungraded trials have their own paired count. Review each lost or unresolved task before proposing a route change. Submission and reproduction confer no production routing authority.
+
 Built on SIP — Starlight Intelligence Protocol. Code MIT, methodology open.
